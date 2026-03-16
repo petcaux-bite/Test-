@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlabWorld - Jeu Social 2D</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div id="chat-container">
+            <div id="chat-messages"></div>
+            <div id="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Tape ton message..." maxlength="200" autocomplete="off">
+                <button id="chat-send">Envoyer</button>
+            </div>
+        </div>
+        <div id="ui-overlay">
+            <button id="btn-customize" title="Personnaliser ton avatar">&#x1f455;</button>
+            <button id="btn-emotes" title="Emotes">&#x1f600;</button>
+        </div>
+    </div>
+
+    <!-- Modal personnalisation avatar -->
+    <div id="customize-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Personnalise ton avatar</h2>
+            <div id="avatar-preview-container">
+                <canvas id="avatar-preview" width="120" height="200"></canvas>
+            </div>
+            <div class="customize-tabs">
+                <button class="tab-btn active" data-tab="body">Corps</button>
+                <button class="tab-btn" data-tab="hair">Cheveux</button>
+                <button class="tab-btn" data-tab="top">Haut</button>
+                <button class="tab-btn" data-tab="bottom">Bas</button>
+                <button class="tab-btn" data-tab="accessory">Accessoires</button>
+            </div>
+            <div id="customize-options"></div>
+            <div class="modal-actions">
+                <button id="btn-save-avatar">Valider</button>
+                <button id="btn-cancel-avatar">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pseudo -->
+    <div id="name-modal" class="modal">
+        <div class="modal-content">
+            <h2>Bienvenue sur BlabWorld !</h2>
+            <p>Choisis ton pseudo :</p>
+            <input type="text" id="player-name-input" placeholder="Ton pseudo..." maxlength="20" autocomplete="off">
+            <button id="btn-start">Entrer dans le monde</button>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/avatar.js"></script>
+    <script src="js/world.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/npcs.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
