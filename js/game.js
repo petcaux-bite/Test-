@@ -32,8 +32,11 @@ class Game {
         this._kickedPlayers = new Set();
         this.showWorldMap   = false;
 
-        this.collectibles   = [];
-        this.showShop       = false;
+        this.collectibles    = [];
+        this.showShop        = false;
+        this.showInventory   = false;
+        this.shopTab         = 'skins';   // 'skins' | 'potions'
+        this._shopHitboxes   = [];
 
         this._setupInput();
         window.addEventListener('resize', () => this.resize());
@@ -61,7 +64,10 @@ class Game {
             isWalking:      false,
             speed:          3,
             coins:          0,
-            unlockedSkins:  [],
+            inventory: {
+                potions: { speed: 0, grow: 0, shrink: 0 },
+                skins:   [],   // IDs des skins débloqués
+            },
             potionEffect:   null,   // { type, expiresAt }
             scaleMultiplier: 1,
         };
@@ -69,6 +75,7 @@ class Game {
         this._initCollectibles();
 
         this.chat.setPlayer(this.player);
+        if (isAdmin) this.chat.setAdmin(true);
         this.chat.addMessage(null, playerName + ' a rejoint BlabWorld !', true);
         if (isAdmin) {
             this.chat.addMessage(null, '⚜ Connexion en tant qu\'Admin !', true);
@@ -101,13 +108,21 @@ class Game {
                     this.showWorldMap   = false;
                     this.teleportMode   = false;
                     this.showShop       = false;
+                    this.showInventory  = false;
                 }
                 if (e.key === 'e' || e.key === 'E') {
                     this._tryInteract();
                 }
                 if (e.key === 's' || e.key === 'S') {
-                    if (this.player) this.showShop = !this.showShop;
+                    if (this.player) { this.showShop = !this.showShop; this.showInventory = false; }
                 }
+                if (e.key === 'i' || e.key === 'I') {
+                    if (this.player) { this.showInventory = !this.showInventory; this.showShop = false; }
+                }
+                // Utiliser potions depuis inventaire : 1/2/3
+                if (e.key === '1') this._usePotion('speed');
+                if (e.key === '2') this._usePotion('grow');
+                if (e.key === '3') this._usePotion('shrink');
             }
         });
         window.addEventListener('keyup', e => {
@@ -347,8 +362,9 @@ class Game {
         this._drawTeleportOverlay(ctx, canvas);
         this._drawHUD(ctx);
         this._drawControls(ctx);
-        if (this.showShop)    this._drawShop(ctx, canvas);
-        if (this.showWorldMap) this._drawWorldMap(ctx, canvas);
+        if (this.showInventory) this._drawInventory(ctx, canvas);
+        if (this.showShop)      this._drawShop(ctx, canvas);
+        if (this.showWorldMap)  this._drawWorldMap(ctx, canvas);
     }
 
     _drawPlayer(ctx) {
@@ -737,44 +753,49 @@ class Game {
     // ══════════════════════════════════════════════════════════════════
     _initCollectibles() {
         this.collectibles = [];
-        const now = Date.now();
-
+        // Seules les pièces apparaissent sur la map — les potions s'achètent en boutique
         for (const sp of this.world.getCoinSpawns()) {
-            this.collectibles.push({ type: 'coin', x: sp.x, y: sp.y,
-                collected: false, respawnAt: null, bobOffset: Math.random() * Math.PI * 2 });
-        }
-        for (const sp of this.world.getPotionSpawns()) {
-            this.collectibles.push({ type: 'potion', subtype: sp.type, x: sp.x, y: sp.y,
-                collected: false, respawnAt: null, bobOffset: Math.random() * Math.PI * 2 });
+            this.collectibles.push({
+                type: 'coin', x: sp.x, y: sp.y,
+                collected: false, respawnAt: null,
+                bobOffset: Math.random() * Math.PI * 2,
+            });
         }
     }
 
     _updateCollectibles(p) {
         const now = Date.now();
         for (const c of this.collectibles) {
-            // Réapparition
             if (c.collected && c.respawnAt && now > c.respawnAt) {
-                c.collected = false;
-                c.respawnAt = null;
+                c.collected = false; c.respawnAt = null;
             }
             if (c.collected) continue;
-
-            // Collision joueur
             if (Math.abs(p.x - c.x) < 20 && Math.abs(p.y - c.y) < 28) {
                 c.collected = true;
-                if (c.type === 'coin') {
-                    p.coins++;
-                    c.respawnAt = now + 30000; // réapparaît dans 30s
-                } else if (c.type === 'potion') {
-                    this._applyPotion(c.subtype);
-                    c.respawnAt = now + 60000; // réapparaît dans 60s
-                }
+                p.coins++;
+                c.respawnAt = now + 30000;
             }
         }
     }
 
+    // Ramassage → inventaire
     _applyPotion(type) {
         const p = this.player;
+        p.inventory.potions[type]++;
+        const labels = { speed: '⚡ Potion Vitesse', grow: '🔵 Potion Géant', shrink: '🟣 Potion Petit' };
+        this._showNotif(`${labels[type]} ajoutée à l'inventaire ! [1/2/3]`);
+    }
+
+    // Utilisation depuis inventaire
+    _usePotion(type) {
+        if (!this.player) return;
+        const p = this.player;
+        if ((p.inventory.potions[type] || 0) <= 0) {
+            if (!this.chat.isChatFocused())
+                this._showNotif('❌ Aucune potion de ce type dans l\'inventaire !');
+            return;
+        }
+        p.inventory.potions[type]--;
         p.potionEffect = { type, expiresAt: Date.now() + 10000 };
         if (type === 'speed') {
             p.speed = 6;
@@ -784,7 +805,7 @@ class Game {
             this._showNotif('🔵 Taille × 2 ! (10s)');
         } else if (type === 'shrink') {
             p.scaleMultiplier = 0.55;
-            this._showNotif('🔵 Taille réduite ! (10s)');
+            this._showNotif('🟣 Taille réduite ! (10s)');
         }
     }
 
@@ -808,22 +829,19 @@ class Game {
     }
 
     _drawCoin(ctx, x, y) {
-        // Corps doré
-        const g = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, 11);
-        g.addColorStop(0, '#FFE566');
-        g.addColorStop(0.6, '#FFC107');
-        g.addColorStop(1, '#E65100');
+        // Pièce dorée style screenshot (disque simple avec reflet)
+        const g = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, 10);
+        g.addColorStop(0,   '#FFE566');
+        g.addColorStop(0.55, '#FFC107');
+        g.addColorStop(1,   '#F57F17');
         ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
+        // Contour
         ctx.strokeStyle = '#E65100'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.stroke();
-        // Lettre B
-        ctx.fillStyle = '#E65100';
-        ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText('B', x, y + 3);
-        // Reflet
-        ctx.fillStyle = 'rgba(255,255,255,0.35)';
-        ctx.beginPath(); ctx.ellipse(x - 3, y - 3, 4, 2.5, -0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.stroke();
+        // Éclat lumineux haut-gauche
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.beginPath(); ctx.ellipse(x - 3, y - 3.5, 4, 2.5, -0.6, 0, Math.PI * 2); ctx.fill();
     }
 
     _drawPotion(ctx, x, y, subtype) {
@@ -894,129 +912,402 @@ class Game {
             ctx.fillText(`${icons[p.potionEffect.type]} ${labels[p.potionEffect.type]} ${remaining}s`, 16, 67);
         }
 
-        // Bouton boutique (coin bouton S)
+        // Potions en inventaire (raccourcis 1/2/3)
+        const inv = p.inventory.potions;
+        const py2 = p.potionEffect ? 84 : 52;
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.beginPath(); ctx.roundRect(10, p.potionEffect ? 82 : 50, 100, 26, 8); ctx.fill();
-        ctx.fillStyle = '#FFCC02';
-        ctx.font = '12px sans-serif'; ctx.textAlign = 'left';
-        ctx.fillText('🛒 [S] Boutique', 16, (p.potionEffect ? 82 : 50) + 17);
+        ctx.beginPath(); ctx.roundRect(10, py2, 200, 26, 8); ctx.fill();
+        ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillStyle = inv.speed  > 0 ? '#FF7043' : 'rgba(255,255,255,0.35)';
+        ctx.fillText(`⚡[1]×${inv.speed}`, 16, py2 + 17);
+        ctx.fillStyle = inv.grow   > 0 ? '#42A5F5' : 'rgba(255,255,255,0.35)';
+        ctx.fillText(`🔵[2]×${inv.grow}`,  80, py2 + 17);
+        ctx.fillStyle = inv.shrink > 0 ? '#AB47BC' : 'rgba(255,255,255,0.35)';
+        ctx.fillText(`🟣[3]×${inv.shrink}`, 144, py2 + 17);
+
+        // Boutons boutique + inventaire
+        const py3 = py2 + 32;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath(); ctx.roundRect(10, py3, 100, 26, 8); ctx.fill();
+        ctx.fillStyle = '#FFCC02'; ctx.font = '12px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('🛒 [S] Boutique', 16, py3 + 17);
+
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath(); ctx.roundRect(116, py3, 94, 26, 8); ctx.fill();
+        ctx.fillStyle = '#80DEEA';
+        ctx.fillText('🎒 [I] Inventaire', 122, py3 + 17);
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // BOUTIQUE
+    // BOUTIQUE (onglets Skins / Potions)
     // ══════════════════════════════════════════════════════════════════
     _drawShop(ctx, canvas) {
         const p = this.player;
         const cw = canvas.width, ch = canvas.height;
+        this._shopHitboxes = [];
 
         // Fond
-        ctx.fillStyle = 'rgba(5,10,30,0.94)';
+        ctx.fillStyle = 'rgba(5,10,30,0.95)';
         ctx.fillRect(0, 0, cw, ch);
 
-        // Titre
+        // Titre + solde
         ctx.fillStyle = '#FFCC02';
         ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
         ctx.fillText('🛒 Boutique BlabWorld', cw / 2, 44);
+        ctx.fillStyle = 'rgba(255,204,2,0.7)'; ctx.font = '13px sans-serif';
+        ctx.fillText(`💰 ${p.coins} Blab$   •   [S] Fermer   •   [I] Inventaire`, cw / 2, 66);
 
-        ctx.fillStyle = 'rgba(255,204,2,0.7)';
-        ctx.font = '14px sans-serif';
-        ctx.fillText(`Tes pièces : ${p.coins} Blab$    [S] ou [Échap] pour fermer`, cw / 2, 68);
+        // Onglets
+        const tabs = [{ id: 'skins', label: '👗 Skins' }, { id: 'potions', label: '🧪 Potions' }];
+        const tabW = 140, tabH = 36, tabY = 80, tabGap = 8;
+        const tabTotalW = tabs.length * tabW + (tabs.length - 1) * tabGap;
+        const tabStartX = (cw - tabTotalW) / 2;
 
-        const skins = AvatarConfig.rareSkins;
-        const cols  = Math.min(3, skins.length);
-        const cardW = 160, cardH = 200, gap = 20;
-        const totalW = cols * cardW + (cols - 1) * gap;
-        const startX = (cw - totalW) / 2;
-        const startY = 100;
-
-        for (let i = 0; i < skins.length; i++) {
-            const sk = skins[i];
-            const col = i % cols, row = Math.floor(i / cols);
-            const cx  = startX + col * (cardW + gap);
-            const cy  = startY + row * (cardH + gap);
-            const owned = p.unlockedSkins.includes(sk.id);
-
-            // Carte
-            ctx.fillStyle = owned ? 'rgba(50,150,50,0.35)' : 'rgba(30,30,60,0.8)';
-            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, cardH, 12); ctx.fill();
-            ctx.strokeStyle = owned ? '#4CAF50' : '#FFCC02';
-            ctx.lineWidth = owned ? 2 : 1.5;
-            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, cardH, 12); ctx.stroke();
-
-            // Prévisualisation du blob
-            const previewAvatar = new Avatar({ bodyColor: sk.color, accessory: sk.accessory, expression: sk.expression, eyeColor: '#1565C0' });
-            ctx.save();
-            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, 120, [12, 12, 0, 0]); ctx.clip();
-            // Fond preview
-            const pg = ctx.createLinearGradient(cx, cy, cx, cy + 120);
-            pg.addColorStop(0, '#87CEEB'); pg.addColorStop(1, '#5DBE3A');
-            ctx.fillStyle = pg; ctx.fillRect(cx, cy, cardW, 120);
-            // Sol
-            ctx.fillStyle = '#5DBE3A';
-            ctx.fillRect(cx, cy + 90, cardW, 30);
-            previewAvatar.draw(ctx, cx + cardW / 2, cy + 108, 'right', 0);
-            ctx.restore();
-
-            // Nom
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
-            ctx.fillText(sk.label, cx + cardW / 2, cy + 138);
-
-            // Prix ou statut
-            if (owned) {
-                ctx.fillStyle = '#4CAF50';
-                ctx.font = 'bold 13px sans-serif';
-                ctx.fillText('✔ Débloqué', cx + cardW / 2, cy + 160);
-                // Bouton équiper
-                ctx.fillStyle = '#4CAF50';
-                ctx.beginPath(); ctx.roundRect(cx + 15, cy + 170, cardW - 30, 22, 6); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif';
-                ctx.fillText('Équiper', cx + cardW / 2, cy + 185);
-            } else {
-                ctx.fillStyle = p.coins >= sk.price ? '#FFD740' : '#EF5350';
-                ctx.font = 'bold 13px sans-serif';
-                ctx.fillText(`💰 ${sk.price} Blab$`, cx + cardW / 2, cy + 160);
-                // Bouton acheter
-                ctx.fillStyle = p.coins >= sk.price ? '#FF9800' : 'rgba(100,100,100,0.6)';
-                ctx.beginPath(); ctx.roundRect(cx + 15, cy + 170, cardW - 30, 22, 6); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif';
-                ctx.fillText(p.coins >= sk.price ? 'Acheter' : 'Pas assez 💰', cx + cardW / 2, cy + 185);
-            }
-
-            // Stocker coords pour click
-            if (!this._shopCards) this._shopCards = [];
-            this._shopCards[i] = { cx, cy, cardW, cardH, sk, owned };
+        for (let ti = 0; ti < tabs.length; ti++) {
+            const tx = tabStartX + ti * (tabW + tabGap);
+            const active = this.shopTab === tabs[ti].id;
+            ctx.fillStyle = active ? '#FFCC02' : 'rgba(80,80,120,0.7)';
+            ctx.beginPath(); ctx.roundRect(tx, tabY, tabW, tabH, [8, 8, 0, 0]); ctx.fill();
+            ctx.fillStyle = active ? '#111' : '#ccc';
+            ctx.font = `bold 14px sans-serif`; ctx.textAlign = 'center';
+            ctx.fillText(tabs[ti].label, tx + tabW / 2, tabY + 24);
+            this._shopHitboxes.push({ type: 'tab', value: tabs[ti].id, x: tx, y: tabY, w: tabW, h: tabH });
         }
 
+        const contentY = tabY + tabH + 10;
+        if (this.shopTab === 'skins') this._drawShopSkins(ctx, p, cw, contentY);
+        else                          this._drawShopPotions(ctx, p, cw, contentY);
+
+        // Fermer au clic hors contenu
         if (!this._shopClickHandlerSet) {
             this._shopClickHandlerSet = true;
             canvas.addEventListener('click', e => {
                 if (!this.showShop || !this.player) return;
                 const rect = canvas.getBoundingClientRect();
                 const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-                if (!this._shopCards) return;
-                for (const card of this._shopCards) {
-                    if (!card) continue;
-                    if (mx >= card.cx && mx <= card.cx + card.cardW
-                        && my >= card.cy && my <= card.cy + card.cardH) {
-                        const p = this.player;
-                        if (card.owned) {
-                            // Équiper
-                            p.avatar = new Avatar({ bodyColor: card.sk.color, accessory: card.sk.accessory, expression: card.sk.expression, eyeColor: p.avatar.eyeColor });
-                            this._showNotif(`✔ Skin "${card.sk.label}" équipé !`);
-                        } else if (p.coins >= card.sk.price) {
-                            p.coins -= card.sk.price;
-                            p.unlockedSkins.push(card.sk.id);
-                            this._showNotif(`🎉 Skin "${card.sk.label}" acheté !`);
-                        } else {
-                            this._showNotif('❌ Pas assez de pièces !');
-                        }
-                        e.stopPropagation();
-                        return;
-                    }
+                for (const hb of this._shopHitboxes) {
+                    if (mx < hb.x || mx > hb.x + hb.w || my < hb.y || my > hb.y + hb.h) continue;
+                    this._handleShopHit(hb);
+                    e.stopPropagation(); return;
                 }
             });
         }
+    }
+
+    _drawShopSkins(ctx, p, cw, startY) {
+        const skins = AvatarConfig.rareSkins;
+        const cols  = Math.min(3, skins.length);
+        const cardW = 160, cardH = 200, gap = 16;
+        const totalW = cols * cardW + (cols - 1) * gap;
+        const ox     = (cw - totalW) / 2;
+
+        for (let i = 0; i < skins.length; i++) {
+            const sk   = skins[i];
+            const col  = i % cols, row = Math.floor(i / cols);
+            const cx   = ox + col * (cardW + gap);
+            const cy   = startY + row * (cardH + gap);
+            const owned = p.inventory.skins.includes(sk.id);
+
+            // Fond carte
+            ctx.fillStyle = owned ? 'rgba(40,130,40,0.4)' : 'rgba(20,20,60,0.85)';
+            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, cardH, 12); ctx.fill();
+            ctx.strokeStyle = owned ? '#4CAF50' : '#FFCC02'; ctx.lineWidth = owned ? 2 : 1.5;
+            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, cardH, 12); ctx.stroke();
+
+            // Aperçu blob
+            const av = new Avatar({ bodyColor: sk.color, accessory: sk.accessory, expression: sk.expression, eyeColor: '#1565C0' });
+            ctx.save();
+            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, 118, [12, 12, 0, 0]); ctx.clip();
+            const pg = ctx.createLinearGradient(cx, cy, cx, cy + 118);
+            pg.addColorStop(0, '#87CEEB'); pg.addColorStop(1, '#5DBE3A');
+            ctx.fillStyle = pg; ctx.fillRect(cx, cy, cardW, 118);
+            ctx.fillStyle = '#5DBE3A'; ctx.fillRect(cx, cy + 92, cardW, 30);
+            av.draw(ctx, cx + cardW / 2, cy + 108, 'right', 0);
+            ctx.restore();
+
+            // Nom
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(sk.label, cx + cardW / 2, cy + 135);
+
+            // Bouton achat / équiper
+            const btnY = cy + 148, btnH = 22, btnX = cx + 12, btnW = cardW - 24;
+            if (owned) {
+                ctx.fillStyle = '#4CAF50'; ctx.font = 'bold 11px sans-serif';
+                ctx.fillText('✔ Débloqué', cx + cardW / 2, cy + 148);
+                ctx.fillStyle = '#388E3C';
+                ctx.beginPath(); ctx.roundRect(btnX, cy + 158, btnW, btnH, 6); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif';
+                ctx.fillText('Équiper', cx + cardW / 2, cy + 173);
+                this._shopHitboxes.push({ type: 'equip-skin', sk, x: btnX, y: cy + 158, w: btnW, h: btnH });
+            } else {
+                ctx.fillStyle = p.coins >= sk.price ? '#FFD740' : '#EF5350';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillText(`💰 ${sk.price} Blab$`, cx + cardW / 2, cy + 148);
+                const canBuy = p.coins >= sk.price;
+                ctx.fillStyle = canBuy ? '#FF9800' : 'rgba(80,80,80,0.7)';
+                ctx.beginPath(); ctx.roundRect(btnX, cy + 158, btnW, btnH, 6); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif';
+                ctx.fillText(canBuy ? 'Acheter' : '❌ Insuffisant', cx + cardW / 2, cy + 173);
+                if (canBuy) this._shopHitboxes.push({ type: 'buy-skin', sk, x: btnX, y: cy + 158, w: btnW, h: btnH });
+            }
+        }
+    }
+
+    _drawShopPotions(ctx, p, cw, startY) {
+        const potionDefs = [
+            { type: 'speed',  label: '⚡ Potion Vitesse',  desc: 'Vitesse × 2 pendant 10s', price: 25, color: '#EF5350', dark: '#B71C1C' },
+            { type: 'grow',   label: '🔵 Potion Géant',    desc: 'Taille × 2 pendant 10s',  price: 30, color: '#42A5F5', dark: '#1565C0' },
+            { type: 'shrink', label: '🟣 Potion Petit',    desc: 'Taille ÷ 2 pendant 10s',  price: 30, color: '#AB47BC', dark: '#6A1B9A' },
+        ];
+        const cardW = 220, cardH = 130, gap = 20;
+        const totalH = potionDefs.length * (cardH + gap) - gap;
+        const ox = (cw - cardW) / 2;
+        const oy = startY + 10;
+
+        for (let i = 0; i < potionDefs.length; i++) {
+            const pd = potionDefs[i];
+            const cx = ox, cy = oy + i * (cardH + gap);
+            const stock = p.inventory.potions[pd.type] || 0;
+
+            // Carte
+            const bg = ctx.createLinearGradient(cx, cy, cx + cardW, cy);
+            bg.addColorStop(0, pd.dark + 'cc'); bg.addColorStop(1, 'rgba(20,20,50,0.9)');
+            ctx.fillStyle = bg;
+            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, cardH, 12); ctx.fill();
+            ctx.strokeStyle = pd.color; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, cardH, 12); ctx.stroke();
+
+            // Icône potion
+            this._drawPotion(ctx, cx + 36, cy + cardH / 2, pd.type);
+
+            // Texte
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+            ctx.font = 'bold 15px sans-serif'; ctx.fillText(pd.label, cx + 70, cy + 32);
+            ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '12px sans-serif'; ctx.fillText(pd.desc, cx + 70, cy + 52);
+            ctx.fillStyle = '#FFD740'; ctx.font = 'bold 13px sans-serif'; ctx.fillText(`💰 ${pd.price} Blab$`, cx + 70, cy + 72);
+            ctx.fillStyle = stock > 0 ? '#80DEEA' : 'rgba(255,255,255,0.4)';
+            ctx.fillText(`En stock : ${stock}`, cx + 70, cy + 90);
+
+            // Boutons
+            const canBuy = p.coins >= pd.price;
+            const buyX = cx + cardW - 110, buyW = 96, btnH = 24, btnY = cy + cardH - 34;
+
+            ctx.fillStyle = canBuy ? '#FF9800' : 'rgba(80,80,80,0.7)';
+            ctx.beginPath(); ctx.roundRect(buyX, btnY, buyW, btnH, 6); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(canBuy ? 'Acheter' : '❌ Insuffisant', buyX + buyW / 2, btnY + 16);
+            if (canBuy) this._shopHitboxes.push({ type: 'buy-potion', subtype: pd.type, x: buyX, y: btnY, w: buyW, h: btnH });
+
+            const useX = buyX - 106, useW = 90;
+            ctx.fillStyle = stock > 0 ? '#4CAF50' : 'rgba(80,80,80,0.6)';
+            ctx.beginPath(); ctx.roundRect(useX, btnY, useW, btnH, 6); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif';
+            ctx.fillText('Utiliser [' + (i + 1) + ']', useX + useW / 2, btnY + 16);
+            if (stock > 0) this._shopHitboxes.push({ type: 'use-potion', subtype: pd.type, x: useX, y: btnY, w: useW, h: btnH });
+        }
+    }
+
+    _handleShopHit(hb) {
+        const p = this.player;
+        switch (hb.type) {
+            case 'tab':
+                this.shopTab = hb.value;
+                break;
+            case 'buy-skin':
+                if (p.coins >= hb.sk.price) {
+                    p.coins -= hb.sk.price;
+                    p.inventory.skins.push(hb.sk.id);
+                    this._showNotif(`🎉 Skin "${hb.sk.label}" acheté !`);
+                }
+                break;
+            case 'equip-skin':
+                p.avatar = new Avatar({ bodyColor: hb.sk.color, accessory: hb.sk.accessory, expression: hb.sk.expression, eyeColor: p.avatar.eyeColor });
+                this._showNotif(`✔ Skin "${hb.sk.label}" équipé !`);
+                break;
+            case 'buy-potion':
+                if (p.coins >= this._potionPrice(hb.subtype)) {
+                    p.coins -= this._potionPrice(hb.subtype);
+                    p.inventory.potions[hb.subtype]++;
+                    this._showNotif(`🧪 Potion achetée ! Stock : ${p.inventory.potions[hb.subtype]}`);
+                }
+                break;
+            case 'use-potion':
+                this._usePotion(hb.subtype);
+                break;
+        }
+    }
+
+    _potionPrice(type) { return type === 'speed' ? 25 : 30; }
+
+    // ══════════════════════════════════════════════════════════════════
+    // INVENTAIRE avec onglets Potions / Skins possédés
+    // ══════════════════════════════════════════════════════════════════
+    _drawInventory(ctx, canvas) {
+        const p  = this.player;
+        const cw = canvas.width, ch = canvas.height;
+        const pw = 420, ph = 360;
+        const px = (cw - pw) / 2, py = (ch - ph) / 2;
+
+        if (!this.invTab) this.invTab = 'potions';
+
+        // Fond panneau
+        ctx.fillStyle = 'rgba(5,10,30,0.96)';
+        ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 16); ctx.fill();
+        ctx.strokeStyle = '#80DEEA'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 16); ctx.stroke();
+
+        // Titre
+        ctx.fillStyle = '#80DEEA'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('🎒 Inventaire', px + pw / 2, py + 30);
+        ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '11px sans-serif';
+        ctx.fillText('[I] ou [Échap] pour fermer  •  💰 ' + p.coins + ' Blab$', px + pw / 2, py + 48);
+
+        // Onglets
+        const tabs = [{ id: 'potions', label: '🧪 Potions' }, { id: 'skins', label: '👗 Skins possédés' }];
+        const tabW = 150, tabH = 32, tabY = py + 58, tabGap = 8;
+        const tabTX = px + (pw - (tabs.length * tabW + (tabs.length - 1) * tabGap)) / 2;
+
+        this._invHitboxes = this._invHitboxes || [];
+        this._invHitboxes = [];
+        for (let ti = 0; ti < tabs.length; ti++) {
+            const tx = tabTX + ti * (tabW + tabGap);
+            const active = this.invTab === tabs[ti].id;
+            ctx.fillStyle = active ? '#80DEEA' : 'rgba(50,60,100,0.7)';
+            ctx.beginPath(); ctx.roundRect(tx, tabY, tabW, tabH, [8, 8, 0, 0]); ctx.fill();
+            ctx.fillStyle = active ? '#0a0a20' : '#ccc';
+            ctx.font = `bold 13px sans-serif`; ctx.textAlign = 'center';
+            ctx.fillText(tabs[ti].label, tx + tabW / 2, tabY + 21);
+            this._invHitboxes.push({ type: 'tab', value: tabs[ti].id, x: tx, y: tabY, w: tabW, h: tabH });
+        }
+
+        const contentY = tabY + tabH + 10;
+
+        if (this.invTab === 'potions') {
+            this._drawInvPotions(ctx, p, px, contentY, pw);
+        } else {
+            this._drawInvSkins(ctx, p, px, contentY, pw);
+        }
+
+        // Gestion clics (une seule fois)
+        if (!this._invClickHandlerSet) {
+            this._invClickHandlerSet = true;
+            canvas.addEventListener('click', e => {
+                if (!this.showInventory || !this.player) return;
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+                if (!this._invHitboxes) return;
+                for (const hb of this._invHitboxes) {
+                    if (mx < hb.x || mx > hb.x + hb.w || my < hb.y || my > hb.y + hb.h) continue;
+                    if (hb.type === 'tab') { this.invTab = hb.value; }
+                    else if (hb.type === 'use-potion') { this._usePotion(hb.subtype); }
+                    else if (hb.type === 'equip-skin') {
+                        const p = this.player;
+                        p.avatar = new Avatar({ bodyColor: hb.sk.color, accessory: hb.sk.accessory, expression: hb.sk.expression, eyeColor: p.avatar.eyeColor });
+                        this._showNotif(`✔ Skin "${hb.sk.label}" équipé !`);
+                    }
+                    e.stopPropagation(); return;
+                }
+            });
+        }
+    }
+
+    _drawInvPotions(ctx, p, px, startY, pw) {
+        const potionDefs = [
+            { type: 'speed',  label: '⚡ Vitesse',  desc: 'Vitesse × 2 (10s)',  color: '#EF5350', key: 'Touche [1]' },
+            { type: 'grow',   label: '🔵 Géant',    desc: 'Taille × 2 (10s)',   color: '#42A5F5', key: 'Touche [2]' },
+            { type: 'shrink', label: '🟣 Petit',    desc: 'Taille ÷ 2 (10s)',   color: '#AB47BC', key: 'Touche [3]' },
+        ];
+        const inv = p.inventory.potions;
+        const cardW = (pw - 48) / 3, cardH = 100, gap = 8;
+
+        potionDefs.forEach((pd, i) => {
+            const cx = px + 20 + i * (cardW + gap), cy = startY;
+            const stock = inv[pd.type] || 0;
+
+            ctx.fillStyle = stock > 0 ? pd.color + '30' : 'rgba(30,30,30,0.5)';
+            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, cardH, 10); ctx.fill();
+            ctx.strokeStyle = stock > 0 ? pd.color : 'rgba(80,80,80,0.5)'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, cardH, 10); ctx.stroke();
+
+            // Potion icon
+            this._drawPotion(ctx, cx + 22, cy + 48, pd.type);
+
+            ctx.textAlign = 'right';
+            ctx.fillStyle = stock > 0 ? '#fff' : 'rgba(200,200,200,0.4)';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(pd.label, cx + cardW - 6, cy + 22);
+            ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '10px sans-serif';
+            ctx.fillText(pd.desc, cx + cardW - 6, cy + 38);
+            ctx.fillStyle = stock > 0 ? '#FFD740' : 'rgba(180,180,180,0.4)';
+            ctx.font = `bold ${stock > 0 ? 22 : 16}px sans-serif`;
+            ctx.fillText(`× ${stock}`, cx + cardW - 8, cy + 62);
+            ctx.fillStyle = 'rgba(200,200,200,0.45)'; ctx.font = '9px sans-serif';
+            ctx.fillText(pd.key, cx + cardW - 8, cy + 76);
+
+            // Bouton utiliser
+            const btnX = cx + 6, btnY = cy + cardH - 24, btnW = cardW - 12, btnH = 20;
+            ctx.fillStyle = stock > 0 ? pd.color : 'rgba(60,60,60,0.6)';
+            ctx.beginPath(); ctx.roundRect(btnX, btnY, btnW, btnH, 5); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(stock > 0 ? 'Utiliser' : 'Vide', btnX + btnW / 2, btnY + 13);
+            if (stock > 0) this._invHitboxes.push({ type: 'use-potion', subtype: pd.type, x: btnX, y: btnY, w: btnW, h: btnH });
+        });
+
+        // Aide
+        ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = 'italic 11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('Les potions s\'achètent dans la Boutique [S]', px + pw / 2, startY + 120);
+    }
+
+    _drawInvSkins(ctx, p, px, startY, pw) {
+        const skins = p.inventory.skins;
+        if (skins.length === 0) {
+            ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = 'italic 13px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('Aucun skin acheté.', px + pw / 2, startY + 40);
+            ctx.fillStyle = 'rgba(255,204,2,0.6)'; ctx.font = '12px sans-serif';
+            ctx.fillText('Achète des skins dans la Boutique [S] !', px + pw / 2, startY + 62);
+            return;
+        }
+
+        const cardW = 88, cardH = 115, gap = 12;
+        const perRow = Math.floor((pw - 24) / (cardW + gap));
+
+        skins.forEach((sid, i) => {
+            const sk = AvatarConfig.rareSkins.find(s => s.id === sid);
+            if (!sk) return;
+            const col = i % perRow, row = Math.floor(i / perRow);
+            const cx = px + 12 + col * (cardW + gap), cy = startY + row * (cardH + gap);
+
+            // Fond carte
+            ctx.fillStyle = 'rgba(30,50,30,0.7)';
+            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, cardH, 10); ctx.fill();
+            ctx.strokeStyle = '#4CAF50'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, cardH, 10); ctx.stroke();
+
+            // Badge "Possédé"
+            ctx.fillStyle = '#4CAF50'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('✔ POSSÉDÉ', cx + cardW / 2, cy + 13);
+
+            // Aperçu blob
+            const av = new Avatar({ bodyColor: sk.color, accessory: sk.accessory, expression: sk.expression, eyeColor: '#1565C0' });
+            ctx.save();
+            ctx.beginPath(); ctx.roundRect(cx + 4, cy + 16, cardW - 8, 68, 6); ctx.clip();
+            ctx.fillStyle = '#87CEEB'; ctx.fillRect(cx + 4, cy + 16, cardW - 8, 68);
+            ctx.fillStyle = '#5DBE3A'; ctx.fillRect(cx + 4, cy + 62, cardW - 8, 24);
+            av.draw(ctx, cx + cardW / 2, cy + 76, 'right', 0, 0.85);
+            ctx.restore();
+
+            // Nom
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(sk.label, cx + cardW / 2, cy + 96);
+
+            // Bouton équiper
+            const btnX = cx + 8, btnY = cy + cardH - 22, btnW = cardW - 16, btnH = 18;
+            ctx.fillStyle = '#388E3C';
+            ctx.beginPath(); ctx.roundRect(btnX, btnY, btnW, btnH, 4); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 9px sans-serif';
+            ctx.fillText('Équiper', cx + cardW / 2, btnY + 12);
+            this._invHitboxes.push({ type: 'equip-skin', sk, x: btnX, y: btnY, w: btnW, h: btnH });
+        });
     }
 
     // Admin : donner des pièces à un joueur (simulé)

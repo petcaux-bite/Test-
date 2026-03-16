@@ -291,11 +291,11 @@ class World {
     // ──────────────────────────────────────────────────────────────────
     _drawBackground(ctx, camera, cw, ch) {
         if (camera.y < 600) {
-            // Ciel bleu lumineux style Blabland
+            // Ciel style screenshot : bleu clair lumineux
             const g = ctx.createLinearGradient(0, 0, 0, ch);
-            g.addColorStop(0,   '#4AAFE8');
-            g.addColorStop(0.5, '#7DC8F0');
-            g.addColorStop(1,   '#B3E5FC');
+            g.addColorStop(0,    '#87CEEB');
+            g.addColorStop(0.55, '#B8E3F5');
+            g.addColorStop(1,    '#D4F0FF');
             ctx.fillStyle = g;
             ctx.fillRect(0, 0, cw, ch);
 
@@ -396,13 +396,28 @@ class World {
         }
     }
 
+    // Nuage style screenshot : blanc pur, 3 boules rondes bien définies
     _drawCloud(ctx, x, y, r) {
-        ctx.fillStyle = '#FFFFFFD0';
-        ctx.beginPath(); ctx.arc(x,       y,       r,       0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(x + r,   y + r * 0.2, r * 0.75, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(x - r,   y + r * 0.2, r * 0.7,  0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(x + r * 0.5, y - r * 0.4, r * 0.65, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(x - r * 0.5, y - r * 0.3, r * 0.6,  0, Math.PI * 2); ctx.fill();
+        // Ombre légère sous le nuage
+        ctx.fillStyle = 'rgba(150,185,220,0.25)';
+        ctx.beginPath(); ctx.ellipse(x, y + r * 0.55, r * 1.5, r * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Corps du nuage (blanc pur)
+        ctx.fillStyle = '#FFFFFF';
+        // Boule centrale (principale)
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+        // Boule gauche
+        ctx.beginPath(); ctx.arc(x - r * 0.8, y + r * 0.25, r * 0.72, 0, Math.PI * 2); ctx.fill();
+        // Boule droite
+        ctx.beginPath(); ctx.arc(x + r * 0.85, y + r * 0.22, r * 0.68, 0, Math.PI * 2); ctx.fill();
+        // Petite bosse haut-gauche
+        ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.38, r * 0.55, 0, Math.PI * 2); ctx.fill();
+        // Petite bosse haut-droite
+        ctx.beginPath(); ctx.arc(x + r * 0.38, y - r * 0.3, r * 0.5, 0, Math.PI * 2); ctx.fill();
+
+        // Reflet blanc brillant haut-gauche
+        ctx.fillStyle = 'rgba(255,255,255,0.65)';
+        ctx.beginPath(); ctx.ellipse(x - r * 0.28, y - r * 0.22, r * 0.4, r * 0.28, -0.4, 0, Math.PI * 2); ctx.fill();
     }
 
     _drawBuildingBg(ctx, camera, cw, ch) {
@@ -515,57 +530,60 @@ class World {
             return;
         }
 
-        // Sol normal : terre brune
-        ctx.fillStyle = '#8B5A2B'; ctx.fillRect(sx, sy, w, soilH);
-        // Stries horizontales sombres (texture terre)
-        ctx.strokeStyle = '#73481E'; ctx.lineWidth = 1.5;
+        // Sol normal : terre brune style screenshot
+        ctx.fillStyle = '#A0683A'; ctx.fillRect(sx, sy, w, soilH);
+        // Stries horizontales (texture terre)
+        ctx.strokeStyle = '#8B5A2B'; ctx.lineWidth = 1.5;
         for (let i = 0; i < 5; i++) {
             ctx.beginPath();
             ctx.moveTo(sx, sy + 10 + i * 10);
             ctx.lineTo(sx + w, sy + 10 + i * 10);
             ctx.stroke();
         }
-        // Bande légèrement plus claire au sommet de la terre
-        ctx.fillStyle = '#9B6535'; ctx.fillRect(sx, sy, w, 4);
+        // Bande sombre juste sous l'herbe
+        ctx.fillStyle = '#7A4A20'; ctx.fillRect(sx, sy, w, 5);
 
-        // Couche d'herbe (remplie + contour foncé)
-        const grassH = 10;
-        const step   = 10;
-        const seed   = sx; // offset fixe basé sur position pour pas que ça bouge
+        // ─ Herbe à bosses rondes (style screenshot) ────────────────────
+        this._drawGrassBumps(ctx, sx, sy, w);
+    }
 
-        // Herbe principale (vert vif)
+    // Herbe avec bosses semi-circulaires (style screenshot Blabland)
+    _drawGrassBumps(ctx, sx, sy, w) {
+        const bR = 7; // rayon des bosses
+        const bW = bR * 2; // largeur d'une bosse
+        const base = sy; // ligne de base = sommet du sol
+
+        // Couche sombre sous les bosses (border foncé)
+        ctx.fillStyle = '#3A8C15';
+        ctx.fillRect(sx, base - 2, w, bR + 4);
+
+        // Bosses principales (vert vif)
         ctx.fillStyle = '#5DBE3A';
         ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        for (let dx = 0; dx <= w + step; dx += step) {
-            const waveY = sy - 3 - Math.sin((seed + dx) * 0.18) * 2.5 - Math.cos((seed + dx) * 0.09) * 1.5;
-            ctx.lineTo(sx + Math.min(dx, w), waveY);
+        ctx.moveTo(sx, base + 2);
+        let bx = sx + bR;
+        while (bx < sx + w + bR) {
+            const cx = Math.min(bx, sx + w - bR);
+            ctx.arc(cx, base, bR, Math.PI, 0);
+            bx += bW;
         }
-        ctx.lineTo(sx + w, sy);
+        ctx.lineTo(sx + w, base + 2);
+        ctx.lineTo(sx + w, base + bR + 3);
+        ctx.lineTo(sx, base + bR + 3);
         ctx.closePath();
         ctx.fill();
 
-        // Herbe claire sur les bosses
-        ctx.fillStyle = '#72D447';
-        ctx.beginPath();
-        ctx.moveTo(sx, sy - 1);
-        for (let dx = 0; dx <= w + step; dx += step) {
-            const waveY = sy - 5 - Math.sin((seed + dx) * 0.18) * 2.5 - Math.cos((seed + dx) * 0.09) * 1.5;
-            ctx.lineTo(sx + Math.min(dx, w), waveY);
+        // Reflet clair sur le dessus de chaque bosse
+        ctx.fillStyle = '#7ADB52';
+        bx = sx + bR;
+        while (bx < sx + w - bR) {
+            const cx = Math.min(bx, sx + w - bR);
+            ctx.beginPath();
+            ctx.arc(cx, base, bR * 0.72, Math.PI + 0.4, -0.4);
+            ctx.closePath();
+            ctx.fill();
+            bx += bW;
         }
-        ctx.lineTo(sx + w, sy - 1);
-        ctx.closePath();
-        ctx.fill();
-
-        // Ligne de contour foncée sur l'herbe
-        ctx.strokeStyle = '#3D9E20'; ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        for (let dx = 0; dx <= w + step; dx += step) {
-            const waveY = sy - 5 - Math.sin((seed + dx) * 0.18) * 2.5 - Math.cos((seed + dx) * 0.09) * 1.5;
-            if (dx === 0) ctx.moveTo(sx, waveY);
-            else ctx.lineTo(sx + Math.min(dx, w), waveY);
-        }
-        ctx.stroke();
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -595,40 +613,24 @@ class World {
                 // Grotte niveau 1 : pierre gris-bleuté
                 ctx.fillStyle = '#455A64'; ctx.fillRect(sx, sy, p.width, 14);
                 ctx.fillStyle = '#607D8B'; ctx.fillRect(sx, sy, p.width, 4);
+            } else if (p.stoneType) {
+                // Plateforme pierre grise (style screenshot, zone désert/neutre)
+                ctx.fillStyle = '#909090'; ctx.fillRect(sx, sy, p.width, 14);
+                ctx.fillStyle = '#B0B0B0'; ctx.fillRect(sx, sy, p.width, 4);
+                ctx.fillStyle = '#707070'; ctx.fillRect(sx, sy + 10, p.width, 4);
+                // Jointures
+                ctx.strokeStyle = '#606060'; ctx.lineWidth = 1;
+                for (let i = 0; i < Math.floor(p.width / 32); i++) {
+                    ctx.beginPath(); ctx.moveTo(sx + i * 32 + 16, sy + 4); ctx.lineTo(sx + i * 32 + 16, sy + 10); ctx.stroke();
+                }
             } else {
-                // Surface : même style herbe+brun que le sol principal
-                const ph = 18; // hauteur visible de la plateforme
-                // Sol brun
-                ctx.fillStyle = '#8B5A2B'; ctx.fillRect(sx, sy, p.width, ph);
-                ctx.strokeStyle = '#73481E'; ctx.lineWidth = 1;
+                // Surface : herbe à bosses + brun (style screenshot)
+                const ph = 20;
+                ctx.fillStyle = '#A0683A'; ctx.fillRect(sx, sy, p.width, ph);
+                ctx.fillStyle = '#7A4A20'; ctx.fillRect(sx, sy, p.width, 5);
+                ctx.strokeStyle = '#8B5A2B'; ctx.lineWidth = 1;
                 ctx.beginPath(); ctx.moveTo(sx, sy + 10); ctx.lineTo(sx + p.width, sy + 10); ctx.stroke();
-                // Herbe verte
-                const step = 8, seed = p.x;
-                ctx.fillStyle = '#5DBE3A';
-                ctx.beginPath();
-                ctx.moveTo(sx, sy);
-                for (let dx = 0; dx <= p.width + step; dx += step) {
-                    const wy = sy - 3 - Math.sin((seed + dx) * 0.22) * 2;
-                    ctx.lineTo(sx + Math.min(dx, p.width), wy);
-                }
-                ctx.lineTo(sx + p.width, sy);
-                ctx.closePath(); ctx.fill();
-                ctx.fillStyle = '#72D447';
-                ctx.beginPath();
-                ctx.moveTo(sx, sy - 1);
-                for (let dx = 0; dx <= p.width + step; dx += step) {
-                    const wy = sy - 5 - Math.sin((seed + dx) * 0.22) * 2;
-                    ctx.lineTo(sx + Math.min(dx, p.width), wy);
-                }
-                ctx.lineTo(sx + p.width, sy - 1);
-                ctx.closePath(); ctx.fill();
-                ctx.strokeStyle = '#3D9E20'; ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                for (let dx = 0; dx <= p.width + step; dx += step) {
-                    const wy = sy - 5 - Math.sin((seed + dx) * 0.22) * 2;
-                    if (dx === 0) ctx.moveTo(sx, wy); else ctx.lineTo(sx + Math.min(dx, p.width), wy);
-                }
-                ctx.stroke();
+                this._drawGrassBumps(ctx, sx, sy, p.width);
             }
         }
     }

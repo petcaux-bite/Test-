@@ -45,9 +45,36 @@ body {
     max-height: 240px;
 }
 
-#chat-messages .msg            { margin-bottom: 4px; line-height: 1.4; }
-#chat-messages .msg .author    { font-weight: bold; color: #ffd700; }
+#chat-messages .msg            { margin-bottom: 4px; line-height: 1.4; position: relative; padding-right: 4px; }
+#chat-messages .msg .author    { font-weight: bold; color: #ffd700; cursor: pointer; }
+#chat-messages .msg .author:hover { text-decoration: underline; }
 #chat-messages .msg.system     { color: #88ccff; font-style: italic; }
+
+/* Messages privés */
+#chat-messages .msg.pm         { border-radius: 6px; padding: 3px 6px; margin: 3px 0; }
+#chat-messages .msg.pm-out     { background: rgba(0,150,136,0.25); border-left: 3px solid #26A69A; }
+#chat-messages .msg.pm-in      { background: rgba(103,58,183,0.25); border-left: 3px solid #7E57C2; }
+#chat-messages .msg .pm-tag    { font-weight: bold; color: #80DEEA; font-size: 12px; }
+#chat-messages .msg.pm-in .pm-tag { color: #CE93D8; cursor: pointer; }
+#chat-messages .msg.pm-in .pm-tag:hover { text-decoration: underline; }
+
+/* Bouton suppression admin */
+#chat-messages .msg .del-btn {
+    position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+    background: rgba(200,50,50,0.75); color: #fff; border: none;
+    border-radius: 4px; font-size: 10px; padding: 1px 5px;
+    cursor: pointer; opacity: 0; transition: opacity 0.15s;
+    line-height: 1.4;
+}
+#chat-messages .msg:hover .del-btn { opacity: 1; }
+#chat-messages .msg .del-btn:hover { background: #c0392b; }
+
+/* Message supprimé */
+#chat-messages .msg.deleted {
+    opacity: 0; transform: translateX(-10px);
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+}
 
 #chat-input-area {
     display: flex;
