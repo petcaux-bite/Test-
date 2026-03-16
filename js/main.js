@@ -64,6 +64,10 @@
     const btnMap = document.getElementById('btn-map');
     if (btnMap) btnMap.addEventListener('click', () => { game.showWorldMap = !game.showWorldMap; });
 
+    // === Bouton boutique ===
+    const btnShop = document.getElementById('btn-shop');
+    if (btnShop) btnShop.addEventListener('click', () => { if (game.player) game.showShop = !game.showShop; });
+
     // === Personnalisation avatar (Blob style) ===
     const customizeModal   = document.getElementById('customize-modal');
     const btnCustomize     = document.getElementById('btn-customize');
@@ -139,6 +143,7 @@
                     'surpris':   '😲 Surpris',
                     'endormi':   '😴 Endormi',
                     'clin_oeil': '😉 Clin d\'œil',
+                    'fache':     '😡 Fâché',
                 });
                 break;
             case 'accessory':
@@ -152,6 +157,7 @@
                     'antenne':  '📡 Antenne',
                     'lunettes': '🕶️ Lunettes',
                     'bonnet':   '🧢 Bonnet',
+                    'feuille':  '🍃 Feuille',
                 });
                 break;
         }

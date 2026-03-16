@@ -24,6 +24,7 @@
         <div id="ui-overlay">
             <button id="btn-customize" title="Personnaliser ton blob">&#x1F7E2;</button>
             <button id="btn-map"       title="Carte du Monde [M]">&#x1F5FA;</button>
+            <button id="btn-shop"      title="Boutique [S]">&#x1F6D2;</button>
             <button id="btn-emotes"    title="Emotes">&#x1f600;</button>
             <button id="btn-admin"     title="Panneau Admin" style="display:none">&#x2694;</button>
         </div>
@@ -104,6 +105,16 @@
                 <button onclick="window._game.adminToggleWeather()">🌧️ Météo</button>
                 <button onclick="window._game.adminSpawnNPC()">🤖 Spawn NPC</button>
                 <button onclick="window._game.adminTeleportAll()">✈️ Téléporter tous</button>
+            </div>
+
+            <div class="admin-section">
+                <h4>💰 Donner des pièces :</h4>
+                <div class="admin-actions">
+                    <button onclick="window._game.adminGiveCoins(10)">+10 Blab$</button>
+                    <button onclick="window._game.adminGiveCoins(50)">+50 Blab$</button>
+                    <button onclick="window._game.adminGiveCoins(200)">+200 Blab$</button>
+                    <button onclick="window._game.adminGiveCoins(500)">+500 Blab$</button>
+                </div>
             </div>
 
             <button id="btn-close-admin" class="close-btn">✖ Fermer</button>

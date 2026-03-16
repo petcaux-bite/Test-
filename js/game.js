@@ -32,6 +32,9 @@ class Game {
         this._kickedPlayers = new Set();
         this.showWorldMap   = false;
 
+        this.collectibles   = [];
+        this.showShop       = false;
+
         this._setupInput();
         window.addEventListener('resize', () => this.resize());
     }
@@ -45,19 +48,25 @@ class Game {
         this.isAdmin = isAdmin;
 
         this.player = {
-            name:          playerName,
-            x:             200,
-            y:             this.world.SURFACE_Y - PLAYER_FEET, // pieds = SURFACE_Y
-            velX:          0,
-            velY:          0,
-            onGround:      false,
-            canDoubleJump: true,
-            avatar:        new Avatar(avatarConfig),
-            direction:     'right',
-            walkFrame:     0,
-            isWalking:     false,
-            speed:         3,
+            name:           playerName,
+            x:              200,
+            y:              this.world.SURFACE_Y - PLAYER_FEET,
+            velX:           0,
+            velY:           0,
+            onGround:       false,
+            canDoubleJump:  true,
+            avatar:         new Avatar(avatarConfig),
+            direction:      'right',
+            walkFrame:      0,
+            isWalking:      false,
+            speed:          3,
+            coins:          0,
+            unlockedSkins:  [],
+            potionEffect:   null,   // { type, expiresAt }
+            scaleMultiplier: 1,
         };
+
+        this._initCollectibles();
 
         this.chat.setPlayer(this.player);
         this.chat.addMessage(null, playerName + ' a rejoint BlabWorld !', true);
@@ -91,9 +100,13 @@ class Game {
                 if (e.key === 'Escape') {
                     this.showWorldMap   = false;
                     this.teleportMode   = false;
+                    this.showShop       = false;
                 }
                 if (e.key === 'e' || e.key === 'E') {
                     this._tryInteract();
+                }
+                if (e.key === 's' || e.key === 'S') {
+                    if (this.player) this.showShop = !this.showShop;
                 }
             }
         });
@@ -265,6 +278,16 @@ class Game {
             p.isWalking = false;
         }
 
+        // Effets de potion
+        if (p.potionEffect && Date.now() > p.potionEffect.expiresAt) {
+            p.potionEffect    = null;
+            p.scaleMultiplier = 1;
+            p.speed           = 3;
+        }
+
+        // Collectibles (pièces + potions)
+        if (this.currentMap === 'main') this._updateCollectibles(p);
+
         for (const npc of this.npcs) npc.update(dt, this.chat);
         this._updateRain();
         this.chat.update();
@@ -315,13 +338,16 @@ class Game {
             else this._drawPlayer(ctx);
         }
 
+        if (this.currentMap === 'main') this._drawCollectibles(ctx);
         this.chat.drawBubbles(ctx, this.camera);
         if (this.weather === 'rain' && this.currentMap === 'main') this._drawRain(ctx);
         this._drawDepthOverlay(ctx, canvas);
         this._drawZoneIndicator(ctx);
         this._drawJumpIndicator(ctx);
         this._drawTeleportOverlay(ctx, canvas);
+        this._drawHUD(ctx);
         this._drawControls(ctx);
+        if (this.showShop)    this._drawShop(ctx, canvas);
         if (this.showWorldMap) this._drawWorldMap(ctx, canvas);
     }
 
@@ -330,7 +356,7 @@ class Game {
         const sx = p.x - this.camera.x;
         const sy = p.y - this.camera.y;
 
-        p.avatar.draw(ctx, sx, sy, p.direction, p.isWalking ? p.walkFrame : 0);
+        p.avatar.draw(ctx, sx, sy, p.direction, p.isWalking ? p.walkFrame : 0, p.scaleMultiplier || 1);
 
         ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center';
@@ -511,11 +537,12 @@ class Game {
 
     adminSpawnNPC() {
         if (!this.player) return;
+        const colors = AvatarConfig.bodyColors;
         const npc = new NPC(
             'Bot_' + Math.floor(Math.random() * 999),
             this.player.x + 60,
             this.world.SURFACE_Y - PLAYER_FEET,
-            { skinColor: AvatarConfig.skinColors[Math.floor(Math.random() * AvatarConfig.skinColors.length)] },
+            { bodyColor: colors[Math.floor(Math.random() * colors.length)] },
             ['Bonjour !', 'Sympa ici !', 'Super jeu !', 'Coucou !', 'Waouh !']
         );
         this.npcs.push(npc);
@@ -703,6 +730,302 @@ class Game {
                 this.showWorldMap = false;
             });
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // COLLECTIBLES (pièces + potions)
+    // ══════════════════════════════════════════════════════════════════
+    _initCollectibles() {
+        this.collectibles = [];
+        const now = Date.now();
+
+        for (const sp of this.world.getCoinSpawns()) {
+            this.collectibles.push({ type: 'coin', x: sp.x, y: sp.y,
+                collected: false, respawnAt: null, bobOffset: Math.random() * Math.PI * 2 });
+        }
+        for (const sp of this.world.getPotionSpawns()) {
+            this.collectibles.push({ type: 'potion', subtype: sp.type, x: sp.x, y: sp.y,
+                collected: false, respawnAt: null, bobOffset: Math.random() * Math.PI * 2 });
+        }
+    }
+
+    _updateCollectibles(p) {
+        const now = Date.now();
+        for (const c of this.collectibles) {
+            // Réapparition
+            if (c.collected && c.respawnAt && now > c.respawnAt) {
+                c.collected = false;
+                c.respawnAt = null;
+            }
+            if (c.collected) continue;
+
+            // Collision joueur
+            if (Math.abs(p.x - c.x) < 20 && Math.abs(p.y - c.y) < 28) {
+                c.collected = true;
+                if (c.type === 'coin') {
+                    p.coins++;
+                    c.respawnAt = now + 30000; // réapparaît dans 30s
+                } else if (c.type === 'potion') {
+                    this._applyPotion(c.subtype);
+                    c.respawnAt = now + 60000; // réapparaît dans 60s
+                }
+            }
+        }
+    }
+
+    _applyPotion(type) {
+        const p = this.player;
+        p.potionEffect = { type, expiresAt: Date.now() + 10000 };
+        if (type === 'speed') {
+            p.speed = 6;
+            this._showNotif('⚡ Vitesse × 2 ! (10s)');
+        } else if (type === 'grow') {
+            p.scaleMultiplier = 1.7;
+            this._showNotif('🔵 Taille × 2 ! (10s)');
+        } else if (type === 'shrink') {
+            p.scaleMultiplier = 0.55;
+            this._showNotif('🔵 Taille réduite ! (10s)');
+        }
+    }
+
+    _drawCollectibles(ctx) {
+        const t = Date.now() * 0.003;
+        for (const c of this.collectibles) {
+            if (c.collected) continue;
+            const sx = c.x - this.camera.x;
+            const sy = c.y - this.camera.y;
+            if (sx < -30 || sx > this.canvas.width + 30) continue;
+            if (sy < -30 || sy > this.canvas.height + 30) continue;
+
+            const bob = Math.sin(t + c.bobOffset) * 4; // flottement
+
+            if (c.type === 'coin') {
+                this._drawCoin(ctx, sx, sy - 10 + bob);
+            } else if (c.type === 'potion') {
+                this._drawPotion(ctx, sx, sy - 12 + bob, c.subtype);
+            }
+        }
+    }
+
+    _drawCoin(ctx, x, y) {
+        // Corps doré
+        const g = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, 11);
+        g.addColorStop(0, '#FFE566');
+        g.addColorStop(0.6, '#FFC107');
+        g.addColorStop(1, '#E65100');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#E65100'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.stroke();
+        // Lettre B
+        ctx.fillStyle = '#E65100';
+        ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('B', x, y + 3);
+        // Reflet
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.beginPath(); ctx.ellipse(x - 3, y - 3, 4, 2.5, -0.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    _drawPotion(ctx, x, y, subtype) {
+        const colors = {
+            speed:  { body: '#EF5350', shine: '#FF8A80', label: '⚡' },
+            grow:   { body: '#42A5F5', shine: '#90CAF9', label: '↑↑' },
+            shrink: { body: '#7E57C2', shine: '#B39DDB', label: '↓↓' },
+        };
+        const c = colors[subtype] || colors.speed;
+
+        // Bouchon
+        ctx.fillStyle = '#795548';
+        ctx.fillRect(x - 4, y - 18, 8, 5);
+        ctx.fillStyle = '#5D4037';
+        ctx.fillRect(x - 3, y - 20, 6, 4);
+
+        // Corps bouteille
+        const g = ctx.createLinearGradient(x - 8, y, x + 8, y);
+        g.addColorStop(0, c.shine);
+        g.addColorStop(0.5, c.body);
+        g.addColorStop(1, c.body);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(x - 5, y - 14);
+        ctx.bezierCurveTo(x - 9, y - 8, x - 9, y + 4, x - 7, y + 12);
+        ctx.lineTo(x + 7, y + 12);
+        ctx.bezierCurveTo(x + 9, y + 4, x + 9, y - 8, x + 5, y - 14);
+        ctx.closePath();
+        ctx.fill();
+
+        // Reflet
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(x - 3, y - 4, 3, 6, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Label
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(c.label, x, y + 5);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // HUD (pièces + effets actifs)
+    // ══════════════════════════════════════════════════════════════════
+    _drawHUD(ctx) {
+        if (!this.player) return;
+        const p = this.player;
+
+        // Compteur de pièces (haut-gauche)
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath(); ctx.roundRect(10, 10, 110, 34, 8); ctx.fill();
+
+        this._drawCoin(ctx, 30, 27);
+        ctx.fillStyle = '#FFD740';
+        ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText(`${p.coins} Blab$`, 46, 32);
+
+        // Effet de potion actif
+        if (p.potionEffect) {
+            const remaining = Math.max(0, Math.ceil((p.potionEffect.expiresAt - Date.now()) / 1000));
+            const icons = { speed: '⚡', grow: '🔵', shrink: '🔵' };
+            const labels = { speed: 'Vitesse', grow: 'Géant', shrink: 'Petit' };
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.beginPath(); ctx.roundRect(10, 50, 120, 26, 8); ctx.fill();
+            ctx.fillStyle = '#FFE082';
+            ctx.font = '12px sans-serif'; ctx.textAlign = 'left';
+            ctx.fillText(`${icons[p.potionEffect.type]} ${labels[p.potionEffect.type]} ${remaining}s`, 16, 67);
+        }
+
+        // Bouton boutique (coin bouton S)
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath(); ctx.roundRect(10, p.potionEffect ? 82 : 50, 100, 26, 8); ctx.fill();
+        ctx.fillStyle = '#FFCC02';
+        ctx.font = '12px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('🛒 [S] Boutique', 16, (p.potionEffect ? 82 : 50) + 17);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // BOUTIQUE
+    // ══════════════════════════════════════════════════════════════════
+    _drawShop(ctx, canvas) {
+        const p = this.player;
+        const cw = canvas.width, ch = canvas.height;
+
+        // Fond
+        ctx.fillStyle = 'rgba(5,10,30,0.94)';
+        ctx.fillRect(0, 0, cw, ch);
+
+        // Titre
+        ctx.fillStyle = '#FFCC02';
+        ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('🛒 Boutique BlabWorld', cw / 2, 44);
+
+        ctx.fillStyle = 'rgba(255,204,2,0.7)';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(`Tes pièces : ${p.coins} Blab$    [S] ou [Échap] pour fermer`, cw / 2, 68);
+
+        const skins = AvatarConfig.rareSkins;
+        const cols  = Math.min(3, skins.length);
+        const cardW = 160, cardH = 200, gap = 20;
+        const totalW = cols * cardW + (cols - 1) * gap;
+        const startX = (cw - totalW) / 2;
+        const startY = 100;
+
+        for (let i = 0; i < skins.length; i++) {
+            const sk = skins[i];
+            const col = i % cols, row = Math.floor(i / cols);
+            const cx  = startX + col * (cardW + gap);
+            const cy  = startY + row * (cardH + gap);
+            const owned = p.unlockedSkins.includes(sk.id);
+
+            // Carte
+            ctx.fillStyle = owned ? 'rgba(50,150,50,0.35)' : 'rgba(30,30,60,0.8)';
+            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, cardH, 12); ctx.fill();
+            ctx.strokeStyle = owned ? '#4CAF50' : '#FFCC02';
+            ctx.lineWidth = owned ? 2 : 1.5;
+            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, cardH, 12); ctx.stroke();
+
+            // Prévisualisation du blob
+            const previewAvatar = new Avatar({ bodyColor: sk.color, accessory: sk.accessory, expression: sk.expression, eyeColor: '#1565C0' });
+            ctx.save();
+            ctx.beginPath(); ctx.roundRect(cx, cy, cardW, 120, [12, 12, 0, 0]); ctx.clip();
+            // Fond preview
+            const pg = ctx.createLinearGradient(cx, cy, cx, cy + 120);
+            pg.addColorStop(0, '#87CEEB'); pg.addColorStop(1, '#5DBE3A');
+            ctx.fillStyle = pg; ctx.fillRect(cx, cy, cardW, 120);
+            // Sol
+            ctx.fillStyle = '#5DBE3A';
+            ctx.fillRect(cx, cy + 90, cardW, 30);
+            previewAvatar.draw(ctx, cx + cardW / 2, cy + 108, 'right', 0);
+            ctx.restore();
+
+            // Nom
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(sk.label, cx + cardW / 2, cy + 138);
+
+            // Prix ou statut
+            if (owned) {
+                ctx.fillStyle = '#4CAF50';
+                ctx.font = 'bold 13px sans-serif';
+                ctx.fillText('✔ Débloqué', cx + cardW / 2, cy + 160);
+                // Bouton équiper
+                ctx.fillStyle = '#4CAF50';
+                ctx.beginPath(); ctx.roundRect(cx + 15, cy + 170, cardW - 30, 22, 6); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif';
+                ctx.fillText('Équiper', cx + cardW / 2, cy + 185);
+            } else {
+                ctx.fillStyle = p.coins >= sk.price ? '#FFD740' : '#EF5350';
+                ctx.font = 'bold 13px sans-serif';
+                ctx.fillText(`💰 ${sk.price} Blab$`, cx + cardW / 2, cy + 160);
+                // Bouton acheter
+                ctx.fillStyle = p.coins >= sk.price ? '#FF9800' : 'rgba(100,100,100,0.6)';
+                ctx.beginPath(); ctx.roundRect(cx + 15, cy + 170, cardW - 30, 22, 6); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif';
+                ctx.fillText(p.coins >= sk.price ? 'Acheter' : 'Pas assez 💰', cx + cardW / 2, cy + 185);
+            }
+
+            // Stocker coords pour click
+            if (!this._shopCards) this._shopCards = [];
+            this._shopCards[i] = { cx, cy, cardW, cardH, sk, owned };
+        }
+
+        if (!this._shopClickHandlerSet) {
+            this._shopClickHandlerSet = true;
+            canvas.addEventListener('click', e => {
+                if (!this.showShop || !this.player) return;
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+                if (!this._shopCards) return;
+                for (const card of this._shopCards) {
+                    if (!card) continue;
+                    if (mx >= card.cx && mx <= card.cx + card.cardW
+                        && my >= card.cy && my <= card.cy + card.cardH) {
+                        const p = this.player;
+                        if (card.owned) {
+                            // Équiper
+                            p.avatar = new Avatar({ bodyColor: card.sk.color, accessory: card.sk.accessory, expression: card.sk.expression, eyeColor: p.avatar.eyeColor });
+                            this._showNotif(`✔ Skin "${card.sk.label}" équipé !`);
+                        } else if (p.coins >= card.sk.price) {
+                            p.coins -= card.sk.price;
+                            p.unlockedSkins.push(card.sk.id);
+                            this._showNotif(`🎉 Skin "${card.sk.label}" acheté !`);
+                        } else {
+                            this._showNotif('❌ Pas assez de pièces !');
+                        }
+                        e.stopPropagation();
+                        return;
+                    }
+                }
+            });
+        }
+    }
+
+    // Admin : donner des pièces à un joueur (simulé)
+    adminGiveCoins(amount = 50) {
+        if (!this.player) return;
+        this.player.coins += amount;
+        this.chat.addMessage(null, `⚜ Admin a donné ${amount} Blab$ à ${this.player.name} !`, true);
+        this._showNotif(`💰 +${amount} Blab$ reçus !`);
+        this._refreshAdminPanel();
     }
 
     updatePlayerAvatar(avatarConfig) {
