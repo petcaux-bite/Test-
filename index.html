@@ -3,22 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BlabWorld - Jeu Social 2D</title>
+    <title>BlabWorld – Jeu Social 2D</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
+
+        <!-- Chat -->
         <div id="chat-container">
             <div id="chat-messages"></div>
             <div id="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Tape ton message..." maxlength="200" autocomplete="off">
+                <input type="text" id="chat-input"
+                       placeholder="Tape ton message..." maxlength="200" autocomplete="off">
                 <button id="chat-send">Envoyer</button>
             </div>
         </div>
+
+        <!-- Boutons overlay -->
         <div id="ui-overlay">
             <button id="btn-customize" title="Personnaliser ton avatar">&#x1f455;</button>
-            <button id="btn-emotes" title="Emotes">&#x1f600;</button>
+            <button id="btn-emotes"    title="Emotes">&#x1f600;</button>
+            <button id="btn-admin"     title="Panneau Admin" style="display:none">&#x2694;</button>
         </div>
     </div>
 
@@ -31,10 +37,10 @@
             </div>
             <div class="customize-tabs">
                 <button class="tab-btn active" data-tab="body">Corps</button>
-                <button class="tab-btn" data-tab="hair">Cheveux</button>
-                <button class="tab-btn" data-tab="top">Haut</button>
-                <button class="tab-btn" data-tab="bottom">Bas</button>
-                <button class="tab-btn" data-tab="accessory">Accessoires</button>
+                <button class="tab-btn"        data-tab="hair">Cheveux</button>
+                <button class="tab-btn"        data-tab="top">Haut</button>
+                <button class="tab-btn"        data-tab="bottom">Bas</button>
+                <button class="tab-btn"        data-tab="accessory">Accessoires</button>
             </div>
             <div id="customize-options"></div>
             <div class="modal-actions">
@@ -44,13 +50,52 @@
         </div>
     </div>
 
-    <!-- Modal pseudo -->
+    <!-- Modal connexion -->
     <div id="name-modal" class="modal">
-        <div class="modal-content">
-            <h2>Bienvenue sur BlabWorld !</h2>
-            <p>Choisis ton pseudo :</p>
-            <input type="text" id="player-name-input" placeholder="Ton pseudo..." maxlength="20" autocomplete="off">
+        <div class="modal-content login-box">
+            <h2>🌍 Bienvenue sur BlabWorld !</h2>
+            <p>Choisis ton pseudo pour rejoindre le monde :</p>
+
+            <input type="text"     id="player-name-input"
+                   placeholder="Ton pseudo..." maxlength="20" autocomplete="off">
+
+            <input type="password" id="player-password-input"
+                   placeholder="Mot de passe (optionnel)" maxlength="40" autocomplete="off">
+
+            <p id="admin-hint" class="admin-hint" style="display:none">
+                🛡️ Connexion admin détectée – entre le mot de passe admin
+            </p>
+
             <button id="btn-start">Entrer dans le monde</button>
+
+            <p class="login-tip">
+                Astuce : connecte-toi avec <strong>admin</strong> pour accéder à la Zone Admin ⚜
+            </p>
+        </div>
+    </div>
+
+    <!-- Panneau Admin -->
+    <div id="admin-panel" class="modal hidden">
+        <div class="modal-content admin-modal">
+            <h2>⚜ Panneau Administrateur</h2>
+
+            <div class="admin-stats">
+                <div>👥 En ligne : <strong id="admin-online-count">1</strong></div>
+                <div>📍 Zone actuelle : <strong id="admin-current-zone">Surface</strong></div>
+            </div>
+
+            <div class="admin-section">
+                <h4>Joueurs connectés :</h4>
+                <ul id="admin-player-list"></ul>
+            </div>
+
+            <div class="admin-actions">
+                <button onclick="window._game.adminToggleWeather()">🌧️ Météo</button>
+                <button onclick="window._game.adminSpawnNPC()">🤖 Spawn NPC</button>
+                <button onclick="window._game.adminTeleportAll()">✈️ Téléporter tous</button>
+            </div>
+
+            <button id="btn-close-admin" class="close-btn">✖ Fermer</button>
         </div>
     </div>
 
