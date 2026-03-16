@@ -89,6 +89,17 @@
                 <ul id="admin-player-list"></ul>
             </div>
 
+            <div class="admin-section">
+                <h4>Téléportation :</h4>
+                <div class="admin-actions">
+                    <button onclick="window._game.tpTo(200,'Village')">🏘️ Village</button>
+                    <button onclick="window._game.tpTo(750,'Plaines')">🌿 Plaines</button>
+                    <button onclick="window._game.tpTo(1200,'Forêt')">🌳 Forêt</button>
+                    <button onclick="window._game.tpTo(2300,'Désert')">🏜️ Désert</button>
+                    <button id="btn-tp-free" onclick="window._game.toggleTeleportMode()">✈️ Clic libre</button>
+                </div>
+            </div>
+
             <div class="admin-actions">
                 <button onclick="window._game.adminToggleWeather()">🌧️ Météo</button>
                 <button onclick="window._game.adminSpawnNPC()">🤖 Spawn NPC</button>

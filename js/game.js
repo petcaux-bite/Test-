@@ -1,10 +1,10 @@
 // ===== Moteur de Jeu Principal =====
 
-const GRAVITY       = 0.55;
-const JUMP_FORCE    = -13.5;
-const MAX_FALL      = 18;
-const PLAYER_HALF_W = 12;   // demi-largeur collision
-const PLAYER_H      = 48;   // hauteur du personnage
+const GRAVITY        = 0.55;
+const JUMP_FORCE     = -13.5;
+const MAX_FALL       = 18;
+const PLAYER_HALF_W  = 12;
+const PLAYER_FEET    = 0;   // ancre = pieds (y=0 du dessin Avatar = sol)
 
 class Game {
     constructor(canvas) {
@@ -24,6 +24,10 @@ class Game {
         this.running        = false;
         this.isAdmin        = false;
         this.adminPanelOpen = false;
+        this.teleportMode   = false;
+        this.weather        = 'clear';
+        this.rainParticles  = [];
+        this._kickedPlayers = new Set();
 
         this._setupInput();
         window.addEventListener('resize', () => this.resize());
@@ -40,7 +44,7 @@ class Game {
         this.player = {
             name:          playerName,
             x:             200,
-            y:             this.world.SURFACE_Y,
+            y:             this.world.SURFACE_Y - PLAYER_FEET, // pieds = SURFACE_Y
             velX:          0,
             velY:          0,
             onGround:      false,
@@ -62,7 +66,6 @@ class Game {
 
         this.camera.x = this.player.x - this.canvas.width  / 2;
         this.camera.y = this.player.y - this.canvas.height / 2;
-
         this.running  = true;
         this.lastTime = performance.now();
         requestAnimationFrame(t => this._loop(t));
@@ -73,7 +76,6 @@ class Game {
         window.addEventListener('keydown', e => {
             this.keys[e.key]  = true;
             this.keys[e.code] = true;
-
             if (!this.chat.isChatFocused()) {
                 if (e.code === 'Space' || e.key === 'ArrowUp'
                         || e.key === 'z' || e.key === 'Z') {
@@ -86,10 +88,26 @@ class Game {
             this.keys[e.key]  = false;
             this.keys[e.code] = false;
         });
+
         this.canvas.addEventListener('click', e => {
             if (this.adminPanelOpen) return;
             const rect   = this.canvas.getBoundingClientRect();
-            this.mouseTarget = e.clientX - rect.left + this.camera.x;
+            const clickX = e.clientX - rect.left + this.camera.x;
+            const clickY = e.clientY - rect.top  + this.camera.y;
+
+            // Mode téléport admin (clic libre)
+            if (this.isAdmin && this.teleportMode && this.player) {
+                this.player.x    = clickX;
+                this.player.y    = clickY;
+                this.player.velY = 0;
+                this.teleportMode = false;
+                const btn = document.getElementById('btn-tp-free');
+                if (btn) { btn.textContent = '✈️ Clic libre'; btn.classList.remove('tp-active'); }
+                this._showNotif('✈️ Téléporté !');
+                return;
+            }
+
+            this.mouseTarget = clickX;
         });
     }
 
@@ -131,7 +149,6 @@ class Game {
             }
         }
 
-        // Déplacement souris (horizontal uniquement)
         if (this.mouseTarget !== null) {
             const dx = this.mouseTarget - p.x;
             if (Math.abs(dx) > 6) {
@@ -147,28 +164,34 @@ class Game {
         p.velY += GRAVITY;
         if (p.velY > MAX_FALL) p.velY = MAX_FALL;
 
-        const prevY = p.y;
-        p.y += p.velY;
+        const prevY   = p.y;
+        p.y          += p.velY;
 
-        // Collision avec surfaces
+        // ---- COLLISION SURFACES ----
+        // Les pieds sont à p.y + PLAYER_FEET
         p.onGround = false;
         for (const surf of this.world.getAllSurfaces()) {
             const pL = p.x - PLAYER_HALF_W;
             const pR = p.x + PLAYER_HALF_W;
             if (pR <= surf.x + 2 || pL >= surf.x + surf.width - 2) continue;
 
-            // Atterrissage (dessus)
-            if (prevY <= surf.y && p.y >= surf.y) {
-                p.y             = surf.y;
+            const prevFeet = prevY + PLAYER_FEET;
+            const currFeet = p.y  + PLAYER_FEET;
+
+            // Atterrissage sur le dessus
+            if (prevFeet <= surf.y && currFeet >= surf.y) {
+                p.y             = surf.y - PLAYER_FEET; // pieds exactement sur la surface
                 p.velY          = 0;
                 p.onGround      = true;
                 p.canDoubleJump = true;
             }
             // Plafond (sols solides uniquement)
             if (surf.type === 'ground') {
-                const bot = surf.y + 30;
-                if ((prevY - PLAYER_H) >= bot && (p.y - PLAYER_H) < bot) {
-                    p.y = bot + PLAYER_H;
+                const bot     = surf.y + 30;
+                const headY   = p.y - 5;
+                const prevHead = prevY - 5;
+                if (prevHead >= bot && headY < bot) {
+                    p.y = bot + 5;
                     if (p.velY < 0) p.velY = 0;
                 }
             }
@@ -177,20 +200,22 @@ class Game {
         // Limites monde
         p.x = Utils.clamp(p.x, 30, this.world.width - 30);
 
-        // Chute hors monde → réapparition
-        if (p.y > this.world.height + 100) {
-            p.x = 200; p.y = this.world.SURFACE_Y; p.velY = 0;
+        // Chute → réapparition
+        if (p.y + PLAYER_FEET > this.world.height + 100) {
+            p.x = 200;
+            p.y = this.world.SURFACE_Y - PLAYER_FEET;
+            p.velY = 0;
             this.chat.addMessage(null, p.name + ' est tombé dans le vide !', true);
         }
 
-        // Zone admin bloquée pour non-admins
-        if (!this.isAdmin && this.world.isAdminZone(p.x, p.y)) {
+        // Zone admin bloquée
+        if (!this.isAdmin && this.world.isAdminZone(p.x, p.y + PLAYER_FEET)) {
             p.x    = this.world.adminArea.x - 40;
             p.velY = -8;
             this._showNotif('🚫 Zone Admin – Réservé aux administrateurs !');
         }
 
-        // Animations marche
+        // Animations
         if (moving && p.onGround) {
             p.walkFrame++;
             p.isWalking = true;
@@ -200,11 +225,13 @@ class Game {
         }
 
         for (const npc of this.npcs) npc.update(dt, this.chat);
+        this._updateRain();
         this.chat.update();
 
-        // Caméra 2D smooth follow
+        // Caméra 2D smooth follow (centrée sur le milieu du personnage)
+        const midY    = p.y - 40; // centre du chibi (40px au-dessus des pieds)
         const targetX = p.x - this.canvas.width  / 2;
-        const targetY = p.y - PLAYER_H / 2 - this.canvas.height * 0.45;
+        const targetY = midY - this.canvas.height * 0.5;
         this.camera.x = Utils.lerp(this.camera.x, targetX, 0.1);
         this.camera.y = Utils.lerp(this.camera.y, targetY, 0.1);
         this.camera.x = Utils.clamp(this.camera.x, 0, this.world.width  - this.canvas.width);
@@ -237,10 +264,9 @@ class Game {
 
         this.world.draw(ctx, this.camera);
 
-        // Entités triées par Y
         const entities = this.npcs.map(n => ({ type: 'npc', entity: n }));
         if (this.player) entities.push({ type: 'player', entity: this.player });
-        entities.sort((a, b) => a.entity.y - b.entity.y);
+        entities.sort((a, b) => (a.entity.y + PLAYER_FEET) - (b.entity.y + PLAYER_FEET));
 
         for (const e of entities) {
             if (e.type === 'npc') e.entity.draw(ctx, this.camera);
@@ -248,9 +274,11 @@ class Game {
         }
 
         this.chat.drawBubbles(ctx, this.camera);
+        if (this.weather === 'rain') this._drawRain(ctx);
         this._drawDepthOverlay(ctx, canvas);
         this._drawZoneIndicator(ctx);
         this._drawJumpIndicator(ctx);
+        this._drawTeleportOverlay(ctx, canvas);
         this._drawControls(ctx);
     }
 
@@ -265,16 +293,19 @@ class Game {
         ctx.textAlign = 'center';
         if (this.isAdmin) {
             ctx.fillStyle = '#FFD700';
-            ctx.fillText('⚜ ' + p.name + ' ⚜', sx, sy - 56);
+            ctx.fillText('⚜ ' + p.name + ' ⚜', sx, sy - 95);
         } else {
             ctx.fillStyle = '#fff';
-            ctx.fillText(p.name, sx, sy - 55);
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur  = 4;
+            ctx.fillText(p.name, sx, sy - 95);
+            ctx.shadowBlur = 0;
         }
     }
 
     _drawDepthOverlay(ctx, canvas) {
         if (!this.player) return;
-        const depth = this.player.y - this.world.SURFACE_Y - 70;
+        const depth = (this.player.y + PLAYER_FEET) - this.world.SURFACE_Y - 70;
         if (depth <= 0) return;
         ctx.fillStyle = `rgba(0,0,0,${Math.min(0.55, depth / 750 * 0.55)})`;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -282,7 +313,7 @@ class Game {
 
     _drawZoneIndicator(ctx) {
         if (!this.player) return;
-        const zone = this.world.getZoneAt(this.player.x, this.player.y);
+        const zone = this.world.getZoneAt(this.player.x, this.player.y + PLAYER_FEET);
         if (!zone?.name) return;
         ctx.font = 'bold 15px sans-serif';
         ctx.textAlign = 'center';
@@ -298,7 +329,21 @@ class Game {
         const sy = this.player.y - this.camera.y;
         ctx.fillStyle = 'rgba(255,200,0,0.55)';
         ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText('✦', sx, sy - 66);
+        ctx.fillText('✦', sx, sy - 100);
+    }
+
+    _drawTeleportOverlay(ctx, canvas) {
+        if (!this.teleportMode) return;
+        ctx.fillStyle = 'rgba(74, 144, 217, 0.08)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = 'rgba(74, 144, 217, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 4]);
+        ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#4a90d9';
+        ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('✈️ Mode Téléport – Clique n\'importe où !', canvas.width / 2, 55);
     }
 
     _drawControls(ctx) {
@@ -311,10 +356,11 @@ class Game {
     }
 
     // ------------------------------------------------------------------
-    // PANNEAU ADMIN
+    // ADMIN PANEL
     // ------------------------------------------------------------------
     toggleAdminPanel() {
         if (!this.isAdmin) return;
+        this.teleportMode   = false;
         this.adminPanelOpen = !this.adminPanelOpen;
         const panel = document.getElementById('admin-panel');
         if (!panel) return;
@@ -324,17 +370,17 @@ class Game {
 
     _refreshAdminPanel() {
         const zone = this.player
-            ? this.world.getZoneAt(this.player.x, this.player.y)
+            ? this.world.getZoneAt(this.player.x, this.player.y + PLAYER_FEET)
             : null;
         const el = document.getElementById('admin-current-zone');
         if (el) el.textContent = zone?.name || 'Inconnue';
 
         const fakes = [
             { name: this.player?.name || 'Admin', zone: zone?.name || 'Surface', me: true },
-            { name: 'Maya',   zone: 'Plaines' },
-            { name: 'Thomas', zone: 'Village' },
-            { name: 'Léa',   zone: 'Forêt' },
-        ];
+            { name: 'Maya',   zone: 'Plaines',  x: 750  },
+            { name: 'Thomas', zone: 'Village',  x: 130  },
+            { name: 'Léa',   zone: 'Forêt',    x: 1200 },
+        ].filter(p => p.me || !this._kickedPlayers.has(p.name));
         const list = document.getElementById('admin-player-list');
         if (list) {
             list.innerHTML = fakes.map(p => `
@@ -343,7 +389,8 @@ class Game {
                     <span class="ap-zone">${p.zone}</span>
                     ${!p.me
                         ? `<button onclick="window._game.adminKick('${p.name}')">✖</button>
-                           <button onclick="window._game.adminTp('${p.name}')">✈</button>`
+                           <button title="Téléporter à moi" onclick="window._game.adminTpToMe('${p.name}')">⬅️</button>
+                           <button title="Téléporter vers lui" onclick="window._game.adminTpToPlayer(${p.x || 200})">➡️</button>`
                         : ''}
                 </li>`).join('');
         }
@@ -351,29 +398,121 @@ class Game {
         if (cnt) cnt.textContent = fakes.length;
     }
 
-    adminKick(name) {
-        this.chat.addMessage(null, `⚡ Admin : ${name} a été éjecté !`, true);
+    // Téléporter le joueur admin vers une zone prédéfinie
+    tpTo(x, name) {
+        if (!this.player || !this.isAdmin) return;
+        this.player.x    = x;
+        this.player.y    = this.world.SURFACE_Y - PLAYER_FEET;
+        this.player.velY = 0;
+        this._showNotif(`✈️ Téléporté → ${name} !`);
+        this.adminPanelOpen = false;
+        document.getElementById('admin-panel')?.classList.add('hidden');
+    }
+
+    // Active le mode téléport libre (clic sur la map)
+    toggleTeleportMode() {
+        if (!this.isAdmin) return;
+        this.teleportMode = !this.teleportMode;
+        const btn = document.getElementById('btn-tp-free');
+        if (btn) {
+            btn.textContent = this.teleportMode ? '🎯 Clique sur la map...' : '✈️ Clic libre';
+            btn.classList.toggle('tp-active', this.teleportMode);
+        }
+        if (this.teleportMode) {
+            this.adminPanelOpen = false;
+            document.getElementById('admin-panel')?.classList.add('hidden');
+            this._showNotif('✈️ Mode Téléport – Clique n\'importe où !');
+        }
+    }
+
+    // Téléporter un joueur simulé vers le joueur admin
+    adminTpToMe(name) {
+        this.chat.addMessage(null, `✈ Admin : ${name} a été téléporté vers vous !`, true);
+        this._showNotif(`✈️ ${name} téléporté ici !`);
         this._refreshAdminPanel();
     }
-    adminTp(name) {
-        this.chat.addMessage(null, `✈ Admin : ${name} a été téléporté !`, true);
+
+    // Téléporter le joueur admin vers un NPC/joueur simulé
+    adminTpToPlayer(x) {
+        if (!this.player) return;
+        this.player.x    = x;
+        this.player.y    = this.world.SURFACE_Y - PLAYER_FEET;
+        this.player.velY = 0;
+        this._showNotif('✈️ Téléporté vers le joueur !');
+        this.adminPanelOpen = false;
+        document.getElementById('admin-panel')?.classList.add('hidden');
     }
+
+    adminKick(name) {
+        this._kickedPlayers.add(name);
+        this.chat.addMessage(null, `⚡ ${name} a été banni du monde !`, true);
+        this._showNotif(`⚡ ${name} banni !`);
+        this._refreshAdminPanel();
+    }
+
     adminSpawnNPC() {
         if (!this.player) return;
         const npc = new NPC(
             'Bot_' + Math.floor(Math.random() * 999),
             this.player.x + 60,
-            this.world.SURFACE_Y,
+            this.world.SURFACE_Y - PLAYER_FEET,
             { skinColor: AvatarConfig.skinColors[Math.floor(Math.random() * AvatarConfig.skinColors.length)] },
-            ['Bonjour !', 'Sympa ici !', 'Super jeu !', 'Coucou !']
+            ['Bonjour !', 'Sympa ici !', 'Super jeu !', 'Coucou !', 'Waouh !']
         );
         this.npcs.push(npc);
         this.chat.addMessage(null, '🤖 Admin : NPC spawné !', true);
         this._refreshAdminPanel();
     }
+
     adminToggleWeather() {
-        this.chat.addMessage(null, '🌧️ Admin : Météo changée !', true);
+        this.weather = this.weather === 'rain' ? 'clear' : 'rain';
+        if (this.weather === 'rain') {
+            this.rainParticles = [];
+            for (let i = 0; i < 220; i++) {
+                this.rainParticles.push({
+                    x:     this.camera.x + Math.random() * this.canvas.width,
+                    y:     this.camera.y + Math.random() * this.canvas.height,
+                    speed: 8 + Math.random() * 5,
+                    len:   14 + Math.random() * 10,
+                    alpha: 0.3 + Math.random() * 0.4,
+                });
+            }
+        } else {
+            this.rainParticles = [];
+        }
+        const label = this.weather === 'rain' ? '🌧️ Pluie' : '☀️ Soleil';
+        this.chat.addMessage(null, `Admin : Météo → ${label} !`, true);
+        this._showNotif(`${label} !`);
     }
+
+    _updateRain() {
+        if (this.weather !== 'rain') return;
+        for (const r of this.rainParticles) {
+            r.y += r.speed;
+            r.x -= r.speed * 0.18;
+            if (r.y > this.camera.y + this.canvas.height + 20) {
+                r.y = this.camera.y - 10;
+                r.x = this.camera.x + Math.random() * this.canvas.width;
+            }
+        }
+    }
+
+    _drawRain(ctx) {
+        for (const r of this.rainParticles) {
+            const sx = r.x - this.camera.x;
+            const sy = r.y - this.camera.y;
+            ctx.strokeStyle = `rgba(180,215,255,${r.alpha})`;
+            ctx.lineWidth   = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(sx,                      sy);
+            ctx.lineTo(sx - r.len * 0.18, sy + r.len);
+            ctx.stroke();
+        }
+        // Légère teinte bleue sur l'écran
+        ctx.fillStyle = 'rgba(100,150,220,0.07)';
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
     adminTeleportAll() {
         this.chat.addMessage(null, '✈️ Admin : Tous les joueurs téléportés vers vous !', true);
     }

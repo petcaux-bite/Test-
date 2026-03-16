@@ -353,6 +353,17 @@ body {
     border-radius: 3px;
 }
 
+/* ===== Teleport active button ===== */
+#btn-tp-free.tp-active {
+    background: rgba(74, 144, 217, 0.7) !important;
+    border-color: #4a90d9 !important;
+    animation: tpPulse 1s ease-in-out infinite;
+}
+@keyframes tpPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.75; transform: scale(0.96); }
+}
+
 /* ===== Animation notification ===== */
 @keyframes notifFade {
     0%   { opacity: 0; transform: translateX(-50%) translateY(-8px); }
