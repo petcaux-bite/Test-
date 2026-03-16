@@ -6,9 +6,10 @@ class World {
         this.height   = height;  // 1400
         this.SURFACE_Y = 420;
 
-        this._surfaces  = [];
-        this._caves     = [];
-        this._lavaPools = [];
+        this._surfaces   = [];
+        this._caves      = [];
+        this._lavaPools  = [];
+        this.cavePortals = [];
 
         this.adminArea = { x: 2556, yMax: 318, width: 750 };
 
@@ -31,16 +32,16 @@ class World {
     _buildSurfaces() {
         const S = this.SURFACE_Y;
 
-        // Surface principale (trous = entrées de grottes)
+        // Surface principale (continue – les entrées de grottes se font via portails)
         this._addGround(0,    S, 500);
-        // Trou 1 : x 500-590
+        this._addGround(500,  S, 90);   // bouche trou 1
         this._addGround(590,  S, 360);
-        // Trou 2 : x 950-1040
+        this._addGround(950,  S, 90);   // bouche trou 2
         this._addGround(1040, S, 480);
         this._addGround(1520, S - 35, 160); // colline
-        // Trou 3 : x 1680-1760
+        this._addGround(1680, S, 80);   // bouche trou 3
         this._addGround(1760, S, 320);
-        // Trou 4 : x 2080-2160
+        this._addGround(2080, S, 80);   // bouche trou 4
         this._addGround(2160, S, 240);
         this._addGround(2400, S, 1600);
 
@@ -69,6 +70,7 @@ class World {
 
         // Grotte niveau 1
         this._addGround(400, 820, 360);
+        this._addGround(760, 820, 70);  // bouche trou fond grotte 1
         this._addGround(830, 820, 270);
         this._surfaces.push({ x: 455,  y: 700, width: 100, type: 'platform' });
         this._surfaces.push({ x: 605,  y: 660, width: 120, type: 'platform' });
@@ -78,6 +80,7 @@ class World {
 
         // Grotte profonde
         this._addGround(680,  1140, 320);
+        this._addGround(1000, 1140, 100); // bouche trou fond grotte profonde
         this._addGround(1100, 1140, 650);
         this._surfaces.push({ x: 700,  y: 1000, width: 80,  type: 'platform' });
         this._surfaces.push({ x: 835,  y: 1050, width: 100, type: 'platform' });
@@ -108,6 +111,21 @@ class World {
 
     _buildDecorations() {
         const S = this.SURFACE_Y;
+
+        // Portails d'entrée / sortie des grottes (interaction touche E)
+        this.cavePortals = [
+            // Entrées surface → grotte 1
+            { x: 545,  y: S,    destX: 600,  destY: 790,  label: '⛏ Entrer',   dir: 'down' },
+            { x: 995,  y: S,    destX: 880,  destY: 790,  label: '⛏ Entrer',   dir: 'down' },
+            // Sorties grotte 1 → surface
+            { x: 600,  y: 820,  destX: 545,  destY: S,    label: '↑ Sortir',   dir: 'up'   },
+            { x: 880,  y: 820,  destX: 995,  destY: S,    label: '↑ Sortir',   dir: 'up'   },
+            // Entrées grotte 1 → grotte profonde
+            { x: 720,  y: 820,  destX: 780,  destY: 1110, label: '⛏ Descendre', dir: 'down' },
+            // Sortie grotte profonde → grotte 1
+            { x: 780,  y: 1140, destX: 720,  destY: 790,  label: '↑ Remonter', dir: 'up'   },
+        ];
+
         this.objects = [
             // Village
             { type: 'house',      x: 140,  y: S },
@@ -153,6 +171,13 @@ class World {
             { type: 'tree',       x: 3115, y: 302, s: 0.7 },
             { type: 'heart',      x: 2650, y: 302 - 18 },
             { type: 'balloon',    x: 2900, y: 302 - 80,  c: '#FFD700' },
+            // Portails grotte (visuels)
+            { type: 'caveportal', x: 545,  y: S,    label: '⛏ Grottes', dir: 'down' },
+            { type: 'caveportal', x: 995,  y: S,    label: '⛏ Grottes', dir: 'down' },
+            { type: 'caveexit',   x: 600,  y: 820,  label: '↑ Sortir',   dir: 'up'   },
+            { type: 'caveexit',   x: 880,  y: 820,  label: '↑ Sortir',   dir: 'up'   },
+            { type: 'caveportal', x: 720,  y: 820,  label: '⛏ Plus bas', dir: 'down' },
+            { type: 'caveexit',   x: 780,  y: 1140, label: '↑ Remonter', dir: 'up'   },
             // Grottes
             { type: 'crystal',    x: 505,  y: 820 },
             { type: 'crystal',    x: 705,  y: 820 },
@@ -603,6 +628,8 @@ class World {
             case 'heart':       this._drawHeart(ctx, sx, sy); break;
             case 'stonearch':   this._drawStoneArch(ctx, sx, sy); break;
             case 'adminportal': this._drawAdminPortal(ctx, sx, sy); break;
+            case 'caveportal':  this._drawCavePortal(ctx, sx, sy, obj.label || '⛏', obj.dir || 'down'); break;
+            case 'caveexit':    this._drawCaveExit(ctx, sx, sy, obj.label || '↑', obj.dir || 'up'); break;
         }
     }
 
@@ -878,6 +905,86 @@ class World {
         ctx.fillStyle = `rgba(255,215,0,${0.8 + Math.sin(t * 2) * 0.2})`;
         ctx.font = `${14 + Math.sin(t) * 2}px sans-serif`;
         ctx.fillText('⚜', x, y - 52);
+    }
+
+    // PORTAIL ENTRÉE GROTTE (marron/orange, flèche vers le bas)
+    _drawCavePortal(ctx, x, y, label, dir) {
+        const t   = Date.now() * 0.0015;
+        const alp = 0.6 + Math.sin(t) * 0.25;
+
+        // Arc portail brun
+        ctx.strokeStyle = `rgba(180,100,40,${alp})`;
+        ctx.lineWidth   = 4;
+        ctx.beginPath();
+        ctx.moveTo(x - 22, y);
+        ctx.lineTo(x - 22, y - 48);
+        ctx.arc(x, y - 48, 22, Math.PI, 0);
+        ctx.lineTo(x + 22, y);
+        ctx.stroke();
+
+        // Remplissage
+        const gr = ctx.createRadialGradient(x, y - 34, 3, x, y - 34, 24);
+        gr.addColorStop(0, `rgba(120,60,10,${0.5 + Math.sin(t * 1.3) * 0.15})`);
+        gr.addColorStop(1, `rgba(60,30,5,0.1)`);
+        ctx.fillStyle = gr;
+        ctx.beginPath();
+        ctx.moveTo(x - 20, y);
+        ctx.lineTo(x - 20, y - 48);
+        ctx.arc(x, y - 48, 20, Math.PI, 0);
+        ctx.lineTo(x + 20, y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Flèche ↓ animée
+        const ay = Math.sin(t * 2) * 3;
+        ctx.fillStyle = `rgba(255,200,80,${0.8 + Math.sin(t * 2) * 0.2})`;
+        ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('▼', x, y - 28 + ay);
+
+        // Label
+        ctx.fillStyle = 'rgba(255,200,100,0.9)';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText(label, x, y + 14);
+    }
+
+    // PORTAIL SORTIE GROTTE (bleu/cyan, flèche vers le haut)
+    _drawCaveExit(ctx, x, y, label, dir) {
+        const t   = Date.now() * 0.0015;
+        const alp = 0.6 + Math.sin(t + 1) * 0.25;
+
+        // Arc portail cyan
+        ctx.strokeStyle = `rgba(80,200,220,${alp})`;
+        ctx.lineWidth   = 4;
+        ctx.beginPath();
+        ctx.moveTo(x - 22, y);
+        ctx.lineTo(x - 22, y - 48);
+        ctx.arc(x, y - 48, 22, Math.PI, 0);
+        ctx.lineTo(x + 22, y);
+        ctx.stroke();
+
+        // Remplissage
+        const gr = ctx.createRadialGradient(x, y - 34, 3, x, y - 34, 24);
+        gr.addColorStop(0, `rgba(0,160,200,${0.45 + Math.sin(t * 1.3) * 0.15})`);
+        gr.addColorStop(1, `rgba(0,80,120,0.1)`);
+        ctx.fillStyle = gr;
+        ctx.beginPath();
+        ctx.moveTo(x - 20, y);
+        ctx.lineTo(x - 20, y - 48);
+        ctx.arc(x, y - 48, 20, Math.PI, 0);
+        ctx.lineTo(x + 20, y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Flèche ↑ animée
+        const ay = Math.sin(t * 2) * 3;
+        ctx.fillStyle = `rgba(150,240,255,${0.85 + Math.sin(t * 2) * 0.15})`;
+        ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('▲', x, y - 28 - ay);
+
+        // Label
+        ctx.fillStyle = 'rgba(150,230,255,0.9)';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText(label, x, y + 14);
     }
 
     // CŒUR flottant

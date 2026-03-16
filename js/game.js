@@ -92,6 +92,9 @@ class Game {
                     this.showWorldMap   = false;
                     this.teleportMode   = false;
                 }
+                if (e.key === 'e' || e.key === 'E') {
+                    this._tryInteract();
+                }
             }
         });
         window.addEventListener('keyup', e => {
@@ -129,6 +132,20 @@ class Game {
         } else if (this.player.canDoubleJump) {
             this.player.velY           = JUMP_FORCE * 0.82;
             this.player.canDoubleJump  = false;
+        }
+    }
+
+    _tryInteract() {
+        if (!this.player || this.currentMap !== 'main') return;
+        const p = this.player;
+        for (const portal of this.world.cavePortals) {
+            if (Math.abs(p.x - portal.x) < 30 && Math.abs(p.y - portal.y) < 50) {
+                p.x    = portal.destX;
+                p.y    = portal.destY;
+                p.velY = 0;
+                this._showNotif(portal.dir === 'down' ? '⛏ Entrée dans la grotte !' : '↑ Retour en surface !');
+                return;
+            }
         }
     }
 
@@ -377,9 +394,25 @@ class Game {
         ctx.fillStyle = 'rgba(255,255,255,0.22)';
         ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
         ctx.fillText(
-            '← →/Q D : Déplacer  |  Espace/↑/Z : Sauter (×2)  |  Entrée : Chat  |  M : Carte  |  Clic : Aller',
+            '← →/Q D : Déplacer  |  Espace/↑/Z : Sauter (×2)  |  E : Interagir  |  Entrée : Chat  |  M : Carte  |  Clic : Aller',
             10, this.canvas.height - 10
         );
+
+        // Indice de portail proche
+        if (this.player && this.currentMap === 'main') {
+            const p = this.player;
+            for (const portal of this.world.cavePortals) {
+                if (Math.abs(p.x - portal.x) < 40 && Math.abs(p.y - portal.y) < 60) {
+                    const hint = portal.dir === 'down' ? '⛏ [E] Entrer dans la grotte' : '↑ [E] Retourner en surface';
+                    ctx.fillStyle = 'rgba(255,220,80,0.95)';
+                    ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+                    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 6;
+                    ctx.fillText(hint, this.canvas.width / 2, this.canvas.height / 2 + 80);
+                    ctx.shadowBlur = 0;
+                    break;
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------
