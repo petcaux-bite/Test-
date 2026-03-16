@@ -1,346 +1,288 @@
-// ===== Système d'Avatar =====
-// Ancre = pieds (y=0 = sol). Tout le dessin est AU-DESSUS (y négatif).
+// ===== Système d'Avatar – Blob style Blabland =====
+// Ancre = pieds (y=0 = sol). Le blob est ENTIÈREMENT au-dessus.
 
 const AvatarConfig = {
-    skinColors:   ['#FFDBB4', '#E8B88A', '#C68642', '#8D5524', '#4A2912', '#F5D0A9'],
-    hairColors:   ['#2C1B0E', '#5A3214', '#8B6914', '#D4A017', '#C0392B', '#E74C3C',
-                   '#2980B9', '#8E44AD', '#1ABC9C', '#ECF0F1'],
-    hairStyles:   ['court', 'long', 'punk', 'queue', 'afro', 'chauve'],
-    topColors:    ['#E74C3C', '#3498DB', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C',
-                   '#E67E22', '#ECF0F1', '#2C3E50', '#FF69B4'],
-    topStyles:    ['tshirt', 'chemise', 'sweat', 'debardeur'],
-    bottomColors: ['#2C3E50', '#34495E', '#2980B9', '#8B4513', '#1A1A2E',
-                   '#4A4A4A', '#D4A017', '#C0392B'],
-    bottomStyles: ['pantalon', 'short', 'jupe'],
-    accessories:  ['aucun', 'lunettes', 'casquette', 'bandana', 'collier'],
+    bodyColors: [
+        '#4CAF50', '#2196F3', '#FF5722', '#9C27B0', '#FF9800',
+        '#00BCD4', '#F44336', '#FFEB3B', '#E91E63', '#607D8B',
+        '#8BC34A', '#FF4081', '#00E5FF', '#CDDC39', '#FF6D00',
+        '#76FF03', '#EA80FC', '#FFFFFF', '#37474F', '#FF80AB',
+    ],
+    eyeColors:   ['#1565C0', '#2E7D32', '#880E4F', '#4A148C', '#BF360C', '#000000'],
+    accessories: ['aucun', 'chapeau', 'couronne', 'antenne', 'lunettes', 'bonnet'],
+    expressions: ['content', 'surpris', 'endormi', 'clin_oeil'],
 };
 
 class Avatar {
     constructor(config = {}) {
-        this.skinColor   = config.skinColor   || AvatarConfig.skinColors[0];
-        this.hairColor   = config.hairColor   || AvatarConfig.hairColors[0];
-        this.hairStyle   = config.hairStyle   || 'court';
-        this.topColor    = config.topColor    || AvatarConfig.topColors[0];
-        this.topStyle    = config.topStyle    || 'tshirt';
-        this.bottomColor = config.bottomColor || AvatarConfig.bottomColors[0];
-        this.bottomStyle = config.bottomStyle || 'pantalon';
-        this.accessory   = config.accessory   || 'aucun';
+        this.bodyColor  = config.bodyColor  || config.skinColor  || AvatarConfig.bodyColors[0];
+        this.eyeColor   = config.eyeColor   || AvatarConfig.eyeColors[0];
+        this.accessory  = config.accessory  || 'aucun';
+        this.expression = config.expression || 'content';
     }
 
     clone() {
         return new Avatar({
-            skinColor:   this.skinColor,
-            hairColor:   this.hairColor,
-            hairStyle:   this.hairStyle,
-            topColor:    this.topColor,
-            topStyle:    this.topStyle,
-            bottomColor: this.bottomColor,
-            bottomStyle: this.bottomStyle,
-            accessory:   this.accessory,
+            bodyColor:  this.bodyColor,
+            eyeColor:   this.eyeColor,
+            accessory:  this.accessory,
+            expression: this.expression,
         });
     }
 
-    // x,y = position des PIEDS sur le sol.
+    // x,y = position des PIEDS (bas du blob = sol).
     draw(ctx, x, y, direction, walkFrame) {
         const isWalking = walkFrame > 0;
-        const bounce    = isWalking ? Math.sin(walkFrame * 0.15) * 1.5 : 0;
-        const legSwing  = isWalking ? Math.sin(walkFrame * 0.15) * 10  : 0;
-        const armSwing  = isWalking ? Math.sin(walkFrame * 0.15) * 14  : 0;
+        const t         = walkFrame * 0.15;
+        // Rebond vertical quand on marche
+        const bounce    = isWalking ? Math.abs(Math.sin(t)) * 4 : 0;
+        // Squish horizontal/vertical (comme Blabland)
+        const sqX       = 1 + (isWalking ? Math.sin(t) * 0.07 : 0);
+        const sqY       = 1 - (isWalking ? Math.abs(Math.sin(t)) * 0.05 : 0);
 
         ctx.save();
-        ctx.translate(x, y + bounce);
+        ctx.translate(x, y - bounce);
 
-        // Ombre au sol (y ≈ 0)
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        // Ombre au sol
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
         ctx.beginPath();
-        ctx.ellipse(0, 1, 13, 4, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, bounce + 1, 18 * sqX, 5, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        this._drawLegs(ctx, legSwing);
-        this._drawTop(ctx);
-        this._drawArms(ctx, armSwing);
-        this._drawHead(ctx, direction);
-        this._drawHair(ctx, direction);
-        this._drawAccessory(ctx, direction);
-
-        ctx.restore();
-    }
-
-    // ── Jambes & chaussures ─────────────────────────────────────────
-    _drawLegs(ctx, swing) {
-        if (this.bottomStyle === 'jupe') {
-            // Jupe trapézoïdale de y=-22 à y=0
-            ctx.fillStyle = this.bottomColor;
-            ctx.beginPath();
-            ctx.moveTo(-14, -22);
-            ctx.lineTo( 14, -22);
-            ctx.lineTo( 18,   0);
-            ctx.lineTo(-18,   0);
-            ctx.closePath();
-            ctx.fill();
-            // Jambes visibles sous la jupe
-            ctx.fillStyle = this.skinColor;
-            ctx.beginPath(); ctx.roundRect(-8 + swing * 0.3, -12, 7, 12, 3); ctx.fill();
-            ctx.beginPath(); ctx.roundRect( 1 - swing * 0.3, -12, 7, 12, 3); ctx.fill();
-        } else {
-            const lh   = this.bottomStyle === 'short' ? 10 : 16;
-            const topY = -8 - lh; // bas de jambe à y=-8 (dessus de la chaussure)
-
-            // Jambe gauche
-            ctx.save();
-            ctx.translate(-5, topY);
-            ctx.rotate(swing * Math.PI / 180);
-            ctx.fillStyle = this.bottomColor;
-            ctx.beginPath(); ctx.roundRect(-4, 0, 8, lh, [3, 3, 2, 2]); ctx.fill();
-            ctx.restore();
-
-            // Jambe droite
-            ctx.save();
-            ctx.translate(5, topY);
-            ctx.rotate(-swing * Math.PI / 180);
-            ctx.fillStyle = this.bottomColor;
-            ctx.beginPath(); ctx.roundRect(-4, 0, 8, lh, [3, 3, 2, 2]); ctx.fill();
-            ctx.restore();
-        }
-
-        // Chaussures grosses (chibi) de y=-8 à y=0
-        ctx.fillStyle = '#222';
-        ctx.beginPath(); ctx.roundRect(-13 + swing * 0.35, -8, 12, 8, [3, 5, 5, 3]); ctx.fill();
-        ctx.beginPath(); ctx.roundRect(  1 - swing * 0.35, -8, 12, 8, [3, 5, 5, 3]); ctx.fill();
-        // Reflet
-        ctx.fillStyle = 'rgba(255,255,255,0.12)';
-        ctx.beginPath(); ctx.ellipse(-8 + swing * 0.35, -5, 4, 2, -0.3, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse( 6 - swing * 0.35, -5, 4, 2, -0.3, 0, Math.PI * 2); ctx.fill();
-    }
-
-    // ── Corps / haut ────────────────────────────────────────────────
-    _drawTop(ctx) {
-        ctx.fillStyle = this.topColor;
-        // Corps de y=-42 à y=-20
-        switch (this.topStyle) {
-            case 'chemise':
-                ctx.beginPath(); ctx.roundRect(-13, -42, 26, 22, 4); ctx.fill();
-                // Boutonnière
-                ctx.fillStyle = this._darken(this.topColor, 0.15);
-                ctx.fillRect(-2, -42, 4, 22);
-                break;
-            case 'sweat':
-                ctx.beginPath(); ctx.roundRect(-13, -42, 26, 22, 4); ctx.fill();
-                // Poche kangourou
-                ctx.fillStyle = this._darken(this.topColor, 0.1);
-                ctx.beginPath(); ctx.roundRect(-8, -29, 16, 9, 3); ctx.fill();
-                break;
-            case 'debardeur':
-                ctx.beginPath(); ctx.roundRect(-10, -42, 20, 22, 4); ctx.fill();
-                // Épaules nues
-                ctx.fillStyle = this.skinColor;
-                ctx.fillRect(-14, -42, 4, 10);
-                ctx.fillRect( 10, -42, 4, 10);
-                break;
-            default: // tshirt
-                ctx.beginPath(); ctx.roundRect(-13, -42, 26, 22, 4); ctx.fill();
-                break;
-        }
-    }
-
-    // ── Bras ────────────────────────────────────────────────────────
-    _drawArms(ctx, swing) {
-        // Bras gauche
+        // ─ Corps du blob ─────────────────────────────────────────────
         ctx.save();
-        ctx.translate(-15, -40);
-        ctx.rotate(swing * Math.PI / 180);
-        ctx.fillStyle = this.topColor;
-        ctx.beginPath(); ctx.roundRect(-4, 0, 8, 11, 3); ctx.fill();
-        ctx.fillStyle = this.skinColor;
-        ctx.beginPath(); ctx.roundRect(-3, 10, 6, 9, 2); ctx.fill();
-        ctx.restore();
+        ctx.scale(sqX, sqY);
 
-        // Bras droit
-        ctx.save();
-        ctx.translate(15, -40);
-        ctx.rotate(-swing * Math.PI / 180);
-        ctx.fillStyle = this.topColor;
-        ctx.beginPath(); ctx.roundRect(-4, 0, 8, 11, 3); ctx.fill();
-        ctx.fillStyle = this.skinColor;
-        ctx.beginPath(); ctx.roundRect(-3, 10, 6, 9, 2); ctx.fill();
-        ctx.restore();
-    }
+        const bw = 22, bh = 26; // demi-largeur, demi-hauteur
+        // Gradient radial pour la rondeur
+        const grad = ctx.createRadialGradient(
+            -bw * 0.35, -bh * 1.55, 2,
+             0,         -bh,        bw * 1.4
+        );
+        grad.addColorStop(0,   this._lighten(this.bodyColor, 0.4));
+        grad.addColorStop(0.5, this.bodyColor);
+        grad.addColorStop(1,   this._darken(this.bodyColor, 0.18));
 
-    // ── Tête chibi ──────────────────────────────────────────────────
-    _drawHead(ctx, direction) {
-        const eox = direction === 'left' ? -3 : direction === 'right' ? 3 : 0;
-
-        // Cou (y=-48 à y=-40)
-        ctx.fillStyle = this.skinColor;
-        ctx.beginPath(); ctx.roundRect(-4, -48, 8, 8, 2); ctx.fill();
-
-        // Grande tête ronde chibi (centre y=-64, rx=20, ry=22)
-        ctx.fillStyle = this.skinColor;
+        ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.ellipse(0, -64, 20, 22, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, -bh, bw, bh, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Joues roses
-        ctx.fillStyle = 'rgba(255,110,110,0.35)';
-        ctx.beginPath(); ctx.ellipse(-14 + eox, -60, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse( 14 + eox, -60, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+        // Contour sombre
+        ctx.strokeStyle = this._darken(this.bodyColor, 0.3);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, -bh, bw, bh, 0, 0, Math.PI * 2);
+        ctx.stroke();
 
-        // Yeux kawaii — blanc de l'œil
+        // Reflet brillant
+        ctx.fillStyle = 'rgba(255,255,255,0.28)';
+        ctx.beginPath();
+        ctx.ellipse(-bw * 0.45, -bh * 1.45, bw * 0.4, bh * 0.3, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore(); // scale
+
+        // ─ Yeux ──────────────────────────────────────────────────────
+        const dir  = direction === 'left' ? -1 : 1;
+        const eyeY = -34;
+        this._drawEyes(ctx, dir, eyeY);
+
+        // ─ Expression ────────────────────────────────────────────────
+        this._drawExpression(ctx, dir, eyeY);
+
+        // ─ Accessoire ────────────────────────────────────────────────
+        this._drawAccessory(ctx, dir);
+
+        ctx.restore();
+    }
+
+    _drawEyes(ctx, dir, eyeY) {
+        // Position des deux yeux (côté où le blob regarde en avant)
+        const lx = dir * (-3), rx = dir * 8;
+
+        switch (this.expression) {
+            case 'endormi':
+                // Yeux mi-clos
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.ellipse(lx, eyeY,     6,   4, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(rx, eyeY,     6,   4, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#333';
+                ctx.beginPath(); ctx.ellipse(lx, eyeY + 1, 5.5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(rx, eyeY + 1, 5.5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+                return;
+            case 'clin_oeil':
+                // Un œil fermé (clin d'œil)
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.ellipse(lx, eyeY, 6, 7, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = this.eyeColor;
+                ctx.beginPath(); ctx.ellipse(lx, eyeY, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#111';
+                ctx.beginPath(); ctx.arc(lx + dir, eyeY, 2.4, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(lx - 1, eyeY - 2, 1.4, 0, Math.PI * 2); ctx.fill();
+                // Œil fermé (trait)
+                ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(rx, eyeY, 5, Math.PI + 0.3, -0.3); ctx.stroke();
+                return;
+        }
+
+        // Yeux normaux (content / surpris)
+        const eyeH = this.expression === 'surpris' ? 8 : 7;
+        const eyeW = this.expression === 'surpris' ? 6 : 6;
+
         ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.ellipse(-6 + eox, -67, 5.5, 6.5, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse( 6 + eox, -67, 5.5, 6.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(lx, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(rx, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2); ctx.fill();
 
-        // Iris colorés
-        ctx.fillStyle = '#3a6fad';
-        ctx.beginPath(); ctx.ellipse(-6 + eox, -66, 3.8, 5, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse( 6 + eox, -66, 3.8, 5, 0, 0, Math.PI * 2); ctx.fill();
+        // Iris
+        ctx.fillStyle = this.eyeColor;
+        ctx.beginPath(); ctx.ellipse(lx, eyeY, eyeW * 0.65, eyeH * 0.72, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(rx, eyeY, eyeW * 0.65, eyeH * 0.72, 0, 0, Math.PI * 2); ctx.fill();
 
         // Pupilles
-        const pupX = direction === 'right' ? 1 : direction === 'left' ? -1 : 0;
         ctx.fillStyle = '#111';
-        ctx.beginPath(); ctx.arc(-6 + eox + pupX, -66, 2.2, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc( 6 + eox + pupX, -66, 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(lx + dir, eyeY, 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(rx + dir, eyeY, 2.4, 0, Math.PI * 2); ctx.fill();
 
-        // Reflets brillants
+        // Reflets
         ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(-7 + eox, -68, 1.4, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc( 5 + eox, -68, 1.4, 0, Math.PI * 2); ctx.fill();
-
-        // Sourire
-        ctx.strokeStyle = this._darken(this.skinColor, 0.3);
-        ctx.lineWidth   = 1.8;
-        ctx.beginPath();
-        ctx.arc(eox, -58, 5, 0.15, Math.PI - 0.15);
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(lx - 1, eyeY - 2, 1.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(rx - 1, eyeY - 2, 1.4, 0, Math.PI * 2); ctx.fill();
     }
 
-    // ── Cheveux ─────────────────────────────────────────────────────
-    _drawHair(ctx, direction) {
-        ctx.fillStyle = this.hairColor;
-
-        switch (this.hairStyle) {
-            case 'long':
-                // Calotte
+    _drawExpression(ctx, dir, eyeY) {
+        switch (this.expression) {
+            case 'surpris':
+                // Bouche ronde ouverte
+                ctx.fillStyle = '#333';
                 ctx.beginPath();
-                ctx.ellipse(0, -70, 22, 18, 0, Math.PI + 0.2, -0.2);
+                ctx.ellipse(dir * 2, eyeY + 13, 5, 6, 0, 0, Math.PI * 2);
                 ctx.fill();
-                // Mèches latérales longues
-                ctx.beginPath(); ctx.roundRect(-24, -78, 8, 38, 4); ctx.fill();
-                ctx.beginPath(); ctx.roundRect( 16, -78, 8, 38, 4); ctx.fill();
-                break;
-
-            case 'punk':
+                ctx.fillStyle = '#111';
                 ctx.beginPath();
-                ctx.moveTo(-12, -82);
-                ctx.lineTo( -6, -98);
-                ctx.lineTo(  0, -80);
-                ctx.lineTo(  6,-102);
-                ctx.lineTo( 12, -80);
-                ctx.lineTo( 16, -92);
-                ctx.lineTo( 20, -78);
-                ctx.lineTo(-20, -78);
-                ctx.closePath();
+                ctx.ellipse(dir * 2, eyeY + 14, 3.5, 4.5, 0, 0, Math.PI * 2);
                 ctx.fill();
                 break;
+            case 'endormi':
+                // ZZZ flottant
+                ctx.fillStyle = 'rgba(140,200,255,0.9)';
+                ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText('z', dir * 20, eyeY - 14);
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillText('Z', dir * 26, eyeY - 24);
+                // Petite bouche endormie
+                ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(dir * -3, eyeY + 12); ctx.lineTo(dir * 8, eyeY + 12); ctx.stroke();
+                break;
+            default: // content + clin_oeil
+                // Sourire
+                ctx.strokeStyle = this._darken(this.bodyColor, 0.3);
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(dir * 2, eyeY + 12, 5.5, 0.2, Math.PI - 0.2);
+                ctx.stroke();
+                break;
+        }
+    }
 
-            case 'queue':
-                // Calotte
-                ctx.beginPath();
-                ctx.ellipse(0, -70, 21, 17, 0, Math.PI + 0.3, -0.3);
-                ctx.fill();
-                // Queue de cheval
-                ctx.beginPath();
-                ctx.moveTo(2, -84);
-                ctx.quadraticCurveTo(22, -80, 20, -54);
-                ctx.quadraticCurveTo(18, -50, 13, -54);
-                ctx.quadraticCurveTo(14, -74,  0, -78);
-                ctx.closePath();
-                ctx.fill();
+    _drawAccessory(ctx, dir) {
+        switch (this.accessory) {
+            case 'chapeau':
+                // Chapeau haut de forme
+                ctx.fillStyle = '#1A1A1A';
+                ctx.beginPath(); ctx.ellipse(0, -50, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillRect(-10, -68, 20, 18);
+                ctx.fillStyle = '#333';
+                ctx.beginPath(); ctx.ellipse(0, -68, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
+                // Ruban
+                ctx.fillStyle = '#E91E63';
+                ctx.fillRect(-10, -57, 20, 4);
                 break;
 
-            case 'afro':
+            case 'bonnet':
+                // Bonnet de laine
+                ctx.fillStyle = '#FF5722';
                 ctx.beginPath();
-                ctx.ellipse(0, -70, 28, 26, 0, 0, Math.PI * 2);
+                ctx.ellipse(0, -50, 20, 6, 0, Math.PI, 0);
                 ctx.fill();
-                // Texture afro
-                ctx.fillStyle = this._darken(this.hairColor, 0.1);
-                for (let i = 0; i < 7; i++) {
-                    const a = (i / 7) * Math.PI * 2;
+                ctx.beginPath();
+                ctx.ellipse(0, -58, 17, 16, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Pompon
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(0, -75, 7, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#FF5722';
+                ctx.beginPath(); ctx.arc(0, -75, 5, 0, Math.PI * 2); ctx.fill();
+                // Rayures
+                ctx.strokeStyle = '#FFCCBC'; ctx.lineWidth = 2;
+                for (let i = 0; i < 3; i++) {
                     ctx.beginPath();
-                    ctx.arc(Math.cos(a) * 18, -70 + Math.sin(a) * 18, 7, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.arc(0, -50, 0, 0, 0); // placeholder
+                    const ry = -50 - i * 7;
+                    ctx.moveTo(-17, ry - 2); ctx.lineTo(17, ry - 2);
+                    ctx.stroke();
                 }
                 break;
 
-            case 'chauve':
-                // Simple reflet de crâne
-                ctx.fillStyle = 'rgba(255,255,255,0.18)';
-                ctx.beginPath(); ctx.ellipse(-5, -80, 7, 5, -0.3, 0, Math.PI * 2); ctx.fill();
+            case 'couronne':
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.moveTo(-14, -50); ctx.lineTo(-14, -62);
+                ctx.lineTo(-7,  -57); ctx.lineTo(  0, -66);
+                ctx.lineTo(  7, -57); ctx.lineTo( 14, -62);
+                ctx.lineTo( 14, -50);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#F9A825'; ctx.lineWidth = 1;
+                ctx.stroke();
+                // Gemmes
+                ctx.fillStyle = '#E53935';
+                ctx.beginPath(); ctx.arc(0, -60, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#1565C0';
+                ctx.beginPath(); ctx.arc(-10, -55, 2.5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc( 10, -55, 2.5, 0, Math.PI * 2); ctx.fill();
                 break;
 
-            default: // court
-                // Calotte
+            case 'antenne':
+                ctx.strokeStyle = '#AAA'; ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.ellipse(0, -70, 21, 16, 0, Math.PI + 0.3, -0.3);
-                ctx.fill();
-                // Petite touffe sur le dessus
+                ctx.moveTo(dir * 5, -50);
+                ctx.quadraticCurveTo(dir * 18, -60, dir * 14, -70);
+                ctx.stroke();
+                const pulseR = 4 + Math.sin(Date.now() * 0.004) * 1.5;
+                ctx.fillStyle = 'rgba(255,80,80,0.8)';
+                ctx.beginPath(); ctx.arc(dir * 14, -71, pulseR, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(dir * 13, -72, 1.5, 0, Math.PI * 2); ctx.fill();
+                break;
+
+            case 'lunettes':
+                ctx.strokeStyle = '#333'; ctx.lineWidth = 1.8;
+                ctx.beginPath(); ctx.ellipse(-3, -34, 8,  8.5, 0, 0, Math.PI * 2); ctx.stroke();
+                ctx.beginPath(); ctx.ellipse( 8, -34, 8,  8.5, 0, 0, Math.PI * 2); ctx.stroke();
+                // Branches
                 ctx.beginPath();
-                ctx.ellipse(0, -82, 9, 7, 0, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.moveTo(-22, -34); ctx.lineTo(-11, -34);
+                ctx.moveTo(  5, -34); ctx.lineTo( 16, -34);
+                ctx.stroke();
                 break;
         }
     }
 
-    // ── Accessoires ─────────────────────────────────────────────────
-    _drawAccessory(ctx, direction) {
-        const eox = direction === 'left' ? -3 : direction === 'right' ? 3 : 0;
-
-        switch (this.accessory) {
-            case 'lunettes':
-                ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5;
-                ctx.beginPath(); ctx.ellipse(-6 + eox, -67, 7.5, 8, 0, 0, Math.PI * 2); ctx.stroke();
-                ctx.beginPath(); ctx.ellipse( 6 + eox, -67, 7.5, 8, 0, 0, Math.PI * 2); ctx.stroke();
-                // Branches
-                ctx.beginPath();
-                ctx.moveTo(-22 + eox, -67); ctx.lineTo(-14 + eox, -67);
-                ctx.moveTo( 14 + eox, -67); ctx.lineTo( 20 + eox, -67);
-                ctx.stroke();
-                break;
-
-            case 'casquette':
-                // Calotte
-                ctx.fillStyle = '#C0392B';
-                ctx.beginPath(); ctx.ellipse(0, -82, 22, 8, 0, Math.PI, 0); ctx.fill();
-                // Visière
-                ctx.fillStyle = '#922B21';
-                const vx = direction === 'left' ? -12 : direction === 'right' ? 12 : 0;
-                ctx.beginPath(); ctx.ellipse(vx, -80, 18, 5, 0, 0, Math.PI); ctx.fill();
-                break;
-
-            case 'bandana':
-                ctx.fillStyle = '#8E44AD';
-                ctx.beginPath(); ctx.roundRect(-21, -80, 42, 8, 3); ctx.fill();
-                // Nœud
-                ctx.beginPath();
-                ctx.moveTo(18, -80); ctx.lineTo(24, -75);
-                ctx.lineTo(22, -70); ctx.lineTo(17, -73);
-                ctx.closePath(); ctx.fill();
-                break;
-
-            case 'collier':
-                ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 2.5;
-                ctx.beginPath(); ctx.ellipse(0, -44, 11, 4, 0, 0, Math.PI); ctx.stroke();
-                ctx.fillStyle = '#FFD700';
-                ctx.beginPath(); ctx.arc(0, -40, 4, 0, Math.PI * 2); ctx.fill();
-                break;
-        }
+    _lighten(color, amount) {
+        const hex = color.replace('#', '');
+        const r = Math.min(255, parseInt(hex.substring(0, 2), 16) + Math.round(255 * amount));
+        const g = Math.min(255, parseInt(hex.substring(2, 4), 16) + Math.round(255 * amount));
+        const b = Math.min(255, parseInt(hex.substring(4, 6), 16) + Math.round(255 * amount));
+        return `rgb(${r},${g},${b})`;
     }
 
     _darken(color, amount) {
         const hex = color.replace('#', '');
-        const r   = Math.max(0, parseInt(hex.substring(0, 2), 16) - Math.round(255 * amount));
-        const g   = Math.max(0, parseInt(hex.substring(2, 4), 16) - Math.round(255 * amount));
-        const b   = Math.max(0, parseInt(hex.substring(4, 6), 16) - Math.round(255 * amount));
+        const r = Math.max(0, parseInt(hex.substring(0, 2), 16) - Math.round(255 * amount));
+        const g = Math.max(0, parseInt(hex.substring(2, 4), 16) - Math.round(255 * amount));
+        const b = Math.max(0, parseInt(hex.substring(4, 6), 16) - Math.round(255 * amount));
         return `rgb(${r},${g},${b})`;
     }
 }

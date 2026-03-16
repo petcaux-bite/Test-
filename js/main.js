@@ -13,14 +13,10 @@
     const adminHint  = document.getElementById('admin-hint');
 
     let currentAvatarConfig = {
-        skinColor:   AvatarConfig.skinColors[0],
-        hairColor:   AvatarConfig.hairColors[0],
-        hairStyle:   'court',
-        topColor:    AvatarConfig.topColors[0],
-        topStyle:    'tshirt',
-        bottomColor: AvatarConfig.bottomColors[0],
-        bottomStyle: 'pantalon',
-        accessory:   'aucun',
+        bodyColor:  AvatarConfig.bodyColors[0],
+        eyeColor:   AvatarConfig.eyeColors[0],
+        accessory:  'aucun',
+        expression: 'content',
     };
 
     function startGame() {
@@ -51,48 +47,42 @@
     }
     nameInput.focus();
 
-    // Afficher indice admin quand on tape "admin"
     if (adminHint && nameInput) {
         nameInput.addEventListener('input', () => {
-            if (nameInput.value.toLowerCase() === 'admin') {
-                adminHint.style.display = 'block';
-            } else {
-                adminHint.style.display = 'none';
-            }
+            adminHint.style.display = nameInput.value.toLowerCase() === 'admin' ? 'block' : 'none';
         });
     }
 
     // === Bouton admin panel ===
     const btnAdmin = document.getElementById('btn-admin');
-    if (btnAdmin) {
-        btnAdmin.addEventListener('click', () => game.toggleAdminPanel());
-    }
+    if (btnAdmin) btnAdmin.addEventListener('click', () => game.toggleAdminPanel());
 
-    // Fermer admin panel
     const btnCloseAdmin = document.getElementById('btn-close-admin');
-    if (btnCloseAdmin) {
-        btnCloseAdmin.addEventListener('click', () => game.toggleAdminPanel());
-    }
+    if (btnCloseAdmin) btnCloseAdmin.addEventListener('click', () => game.toggleAdminPanel());
 
-    // === Personnalisation avatar ===
-    const customizeModal  = document.getElementById('customize-modal');
-    const btnCustomize    = document.getElementById('btn-customize');
-    const btnSaveAvatar   = document.getElementById('btn-save-avatar');
-    const btnCancelAvatar = document.getElementById('btn-cancel-avatar');
+    // === Bouton carte du monde ===
+    const btnMap = document.getElementById('btn-map');
+    if (btnMap) btnMap.addEventListener('click', () => { game.showWorldMap = !game.showWorldMap; });
+
+    // === Personnalisation avatar (Blob style) ===
+    const customizeModal   = document.getElementById('customize-modal');
+    const btnCustomize     = document.getElementById('btn-customize');
+    const btnSaveAvatar    = document.getElementById('btn-save-avatar');
+    const btnCancelAvatar  = document.getElementById('btn-cancel-avatar');
     const optionsContainer = document.getElementById('customize-options');
-    const previewCanvas   = document.getElementById('avatar-preview');
-    const previewCtx      = previewCanvas.getContext('2d');
-    const tabBtns         = document.querySelectorAll('.tab-btn');
+    const previewCanvas    = document.getElementById('avatar-preview');
+    const previewCtx       = previewCanvas.getContext('2d');
+    const tabBtns          = document.querySelectorAll('.tab-btn');
 
     let editingAvatar = null;
-    let currentTab    = 'body';
+    let currentTab    = 'blob';
 
     btnCustomize.addEventListener('click', () => {
         editingAvatar = game.player
             ? game.player.avatar.clone()
             : new Avatar(currentAvatarConfig);
         customizeModal.classList.remove('hidden');
-        currentTab = 'body';
+        currentTab = 'blob';
         updateTabs();
         renderOptions();
         renderPreview();
@@ -101,14 +91,10 @@
     btnSaveAvatar.addEventListener('click', () => {
         if (editingAvatar) {
             currentAvatarConfig = {
-                skinColor:   editingAvatar.skinColor,
-                hairColor:   editingAvatar.hairColor,
-                hairStyle:   editingAvatar.hairStyle,
-                topColor:    editingAvatar.topColor,
-                topStyle:    editingAvatar.topStyle,
-                bottomColor: editingAvatar.bottomColor,
-                bottomStyle: editingAvatar.bottomStyle,
-                accessory:   editingAvatar.accessory,
+                bodyColor:  editingAvatar.bodyColor,
+                eyeColor:   editingAvatar.eyeColor,
+                accessory:  editingAvatar.accessory,
+                expression: editingAvatar.expression,
             };
             game.updatePlayerAvatar(currentAvatarConfig);
         }
@@ -132,41 +118,50 @@
     function renderOptions() {
         optionsContainer.innerHTML = '';
         switch (currentTab) {
-            case 'body':
-                renderColorPicker(AvatarConfig.skinColors, editingAvatar.skinColor, c => {
-                    editingAvatar.skinColor = c; renderPreview(); renderOptions();
+            case 'blob':
+                renderLabel('Couleur du blob :');
+                renderColorPicker(AvatarConfig.bodyColors, editingAvatar.bodyColor, c => {
+                    editingAvatar.bodyColor = c; renderPreview(); renderOptions();
                 });
                 break;
-            case 'hair':
-                renderColorPicker(AvatarConfig.hairColors, editingAvatar.hairColor, c => {
-                    editingAvatar.hairColor = c; renderPreview(); renderOptions();
-                });
-                renderStylePicker(AvatarConfig.hairStyles, editingAvatar.hairStyle, s => {
-                    editingAvatar.hairStyle = s; renderPreview(); renderOptions();
+            case 'yeux':
+                renderLabel('Couleur des yeux :');
+                renderColorPicker(AvatarConfig.eyeColors, editingAvatar.eyeColor, c => {
+                    editingAvatar.eyeColor = c; renderPreview(); renderOptions();
                 });
                 break;
-            case 'top':
-                renderColorPicker(AvatarConfig.topColors, editingAvatar.topColor, c => {
-                    editingAvatar.topColor = c; renderPreview(); renderOptions();
-                });
-                renderStylePicker(AvatarConfig.topStyles, editingAvatar.topStyle, s => {
-                    editingAvatar.topStyle = s; renderPreview(); renderOptions();
-                });
-                break;
-            case 'bottom':
-                renderColorPicker(AvatarConfig.bottomColors, editingAvatar.bottomColor, c => {
-                    editingAvatar.bottomColor = c; renderPreview(); renderOptions();
-                });
-                renderStylePicker(AvatarConfig.bottomStyles, editingAvatar.bottomStyle, s => {
-                    editingAvatar.bottomStyle = s; renderPreview(); renderOptions();
+            case 'expression':
+                renderLabel('Expression :');
+                renderStylePicker(AvatarConfig.expressions, editingAvatar.expression, s => {
+                    editingAvatar.expression = s; renderPreview(); renderOptions();
+                }, {
+                    'content':   '😊 Content',
+                    'surpris':   '😲 Surpris',
+                    'endormi':   '😴 Endormi',
+                    'clin_oeil': '😉 Clin d\'œil',
                 });
                 break;
             case 'accessory':
+                renderLabel('Accessoire :');
                 renderStylePicker(AvatarConfig.accessories, editingAvatar.accessory, s => {
                     editingAvatar.accessory = s; renderPreview(); renderOptions();
+                }, {
+                    'aucun':    '✕ Aucun',
+                    'chapeau':  '🎩 Chapeau',
+                    'couronne': '👑 Couronne',
+                    'antenne':  '📡 Antenne',
+                    'lunettes': '🕶️ Lunettes',
+                    'bonnet':   '🧢 Bonnet',
                 });
                 break;
         }
+    }
+
+    function renderLabel(text) {
+        const lbl = document.createElement('p');
+        lbl.textContent = text;
+        lbl.style.cssText = 'color:rgba(255,255,255,0.7);font-size:12px;margin:4px 0 6px;text-align:center;';
+        optionsContainer.appendChild(lbl);
     }
 
     function renderColorPicker(colors, selected, onChange) {
@@ -176,19 +171,20 @@
             const el = document.createElement('div');
             el.className = 'color-option' + (color === selected ? ' selected' : '');
             el.style.backgroundColor = color;
+            el.style.border = color === '#FFFFFF' ? '2px solid rgba(255,255,255,0.5)' : '';
             el.addEventListener('click', () => onChange(color));
             wrap.appendChild(el);
         });
         optionsContainer.appendChild(wrap);
     }
 
-    function renderStylePicker(styles, selected, onChange) {
+    function renderStylePicker(styles, selected, onChange, labels = {}) {
         const wrap = document.createElement('div');
         wrap.style.cssText = 'width:100%;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px;';
         styles.forEach(style => {
             const btn = document.createElement('button');
             btn.className = 'style-option' + (style === selected ? ' selected' : '');
-            btn.textContent = style;
+            btn.textContent = labels[style] || style;
             btn.addEventListener('click', () => onChange(style));
             wrap.appendChild(btn);
         });
@@ -197,8 +193,14 @@
 
     function renderPreview() {
         previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-        previewCtx.fillStyle = 'rgba(0,0,0,0.2)';
+        // Fond
+        const g = previewCtx.createLinearGradient(0, 0, 0, 200);
+        g.addColorStop(0, '#87CEEB'); g.addColorStop(1, '#4CAF50');
+        previewCtx.fillStyle = g;
         previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+        // Sol
+        previewCtx.fillStyle = '#5D8A20';
+        previewCtx.fillRect(0, 150, 120, 50);
         if (editingAvatar) editingAvatar.draw(previewCtx, 60, 150, 'right', 0);
     }
 

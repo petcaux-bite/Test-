@@ -22,7 +22,8 @@
 
         <!-- Boutons overlay -->
         <div id="ui-overlay">
-            <button id="btn-customize" title="Personnaliser ton avatar">&#x1f455;</button>
+            <button id="btn-customize" title="Personnaliser ton blob">&#x1F7E2;</button>
+            <button id="btn-map"       title="Carte du Monde [M]">&#x1F5FA;</button>
             <button id="btn-emotes"    title="Emotes">&#x1f600;</button>
             <button id="btn-admin"     title="Panneau Admin" style="display:none">&#x2694;</button>
         </div>
@@ -36,11 +37,10 @@
                 <canvas id="avatar-preview" width="120" height="200"></canvas>
             </div>
             <div class="customize-tabs">
-                <button class="tab-btn active" data-tab="body">Corps</button>
-                <button class="tab-btn"        data-tab="hair">Cheveux</button>
-                <button class="tab-btn"        data-tab="top">Haut</button>
-                <button class="tab-btn"        data-tab="bottom">Bas</button>
-                <button class="tab-btn"        data-tab="accessory">Accessoires</button>
+                <button class="tab-btn active" data-tab="blob">🎨 Blob</button>
+                <button class="tab-btn"        data-tab="yeux">👁️ Yeux</button>
+                <button class="tab-btn"        data-tab="expression">😊 Expression</button>
+                <button class="tab-btn"        data-tab="accessory">🎩 Accessoires</button>
             </div>
             <div id="customize-options"></div>
             <div class="modal-actions">
@@ -113,6 +113,7 @@
     <script src="js/utils.js"></script>
     <script src="js/avatar.js"></script>
     <script src="js/world.js"></script>
+    <script src="js/adminworld.js"></script>
     <script src="js/chat.js"></script>
     <script src="js/npcs.js"></script>
     <script src="js/game.js"></script>

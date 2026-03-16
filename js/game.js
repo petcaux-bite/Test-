@@ -12,10 +12,12 @@ class Game {
         this.ctx     = canvas.getContext('2d');
         this.resize();
 
-        this.world   = new World(4000, 1400);
-        this.chat    = new ChatSystem();
-        this.player  = null;
-        this.npcs    = createNPCs(this.world.SURFACE_Y);
+        this.world      = new World(4000, 1400);
+        this.adminWorld = new AdminWorld();
+        this.currentMap = 'main'; // 'main' | 'admin'
+        this.chat       = new ChatSystem();
+        this.player     = null;
+        this.npcs       = createNPCs(this.world.SURFACE_Y);
 
         this.camera  = { x: 0, y: 0 };
         this.keys    = {};
@@ -28,6 +30,7 @@ class Game {
         this.weather        = 'clear';
         this.rainParticles  = [];
         this._kickedPlayers = new Set();
+        this.showWorldMap   = false;
 
         this._setupInput();
         window.addEventListener('resize', () => this.resize());
@@ -81,6 +84,13 @@ class Game {
                         || e.key === 'z' || e.key === 'Z') {
                     e.preventDefault();
                     this._tryJump();
+                }
+                if (e.key === 'm' || e.key === 'M') {
+                    this.showWorldMap = !this.showWorldMap;
+                }
+                if (e.key === 'Escape') {
+                    this.showWorldMap   = false;
+                    this.teleportMode   = false;
                 }
             }
         });
@@ -168,9 +178,9 @@ class Game {
         p.y          += p.velY;
 
         // ---- COLLISION SURFACES ----
-        // Les pieds sont à p.y + PLAYER_FEET
+        const activeWorld = this.currentMap === 'admin' ? this.adminWorld : this.world;
         p.onGround = false;
-        for (const surf of this.world.getAllSurfaces()) {
+        for (const surf of activeWorld.getAllSurfaces()) {
             const pL = p.x - PLAYER_HALF_W;
             const pR = p.x + PLAYER_HALF_W;
             if (pR <= surf.x + 2 || pL >= surf.x + surf.width - 2) continue;
@@ -198,21 +208,35 @@ class Game {
         }
 
         // Limites monde
-        p.x = Utils.clamp(p.x, 30, this.world.width - 30);
+        p.x = Utils.clamp(p.x, 30, activeWorld.width - 30);
 
         // Chute → réapparition
-        if (p.y + PLAYER_FEET > this.world.height + 100) {
-            p.x = 200;
-            p.y = this.world.SURFACE_Y - PLAYER_FEET;
+        if (p.y > activeWorld.height + 100) {
+            p.x    = this.currentMap === 'admin' ? 300 : 200;
+            p.y    = activeWorld.SURFACE_Y;
             p.velY = 0;
             this.chat.addMessage(null, p.name + ' est tombé dans le vide !', true);
         }
 
-        // Zone admin bloquée
-        if (!this.isAdmin && this.world.isAdminZone(p.x, p.y + PLAYER_FEET)) {
+        // Zone admin bloquée (monde principal uniquement)
+        if (this.currentMap === 'main' && !this.isAdmin && this.world.isAdminZone(p.x, p.y)) {
             p.x    = this.world.adminArea.x - 40;
             p.velY = -8;
             this._showNotif('🚫 Zone Admin – Réservé aux administrateurs !');
+        }
+
+        // Portail admin → espace admin (admins seulement)
+        if (this.currentMap === 'main' && this.isAdmin) {
+            if (Math.abs(p.x - 2750) < 35 && Math.abs(p.y - 302) < 50) {
+                this._enterAdminWorld();
+            }
+        }
+        // Portail de retour → monde principal
+        if (this.currentMap === 'admin') {
+            const rp = this.adminWorld.returnPortal;
+            if (Math.abs(p.x - rp.x) < 35 && Math.abs(p.y - rp.y) < 50) {
+                this._exitAdminWorld();
+            }
         }
 
         // Animations
@@ -228,14 +252,14 @@ class Game {
         this._updateRain();
         this.chat.update();
 
-        // Caméra 2D smooth follow (centrée sur le milieu du personnage)
-        const midY    = p.y - 40; // centre du chibi (40px au-dessus des pieds)
+        // Caméra 2D smooth follow
+        const midY    = p.y - 26;
         const targetX = p.x - this.canvas.width  / 2;
         const targetY = midY - this.canvas.height * 0.5;
         this.camera.x = Utils.lerp(this.camera.x, targetX, 0.1);
         this.camera.y = Utils.lerp(this.camera.y, targetY, 0.1);
-        this.camera.x = Utils.clamp(this.camera.x, 0, this.world.width  - this.canvas.width);
-        this.camera.y = Utils.clamp(this.camera.y, 0, this.world.height - this.canvas.height);
+        this.camera.x = Utils.clamp(this.camera.x, 0, Math.max(0, activeWorld.width  - this.canvas.width));
+        this.camera.y = Utils.clamp(this.camera.y, 0, Math.max(0, activeWorld.height - this.canvas.height));
     }
 
     // ------------------------------------------------------------------
@@ -262,7 +286,8 @@ class Game {
         const { ctx, canvas } = this;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        this.world.draw(ctx, this.camera);
+        const drawWorld = this.currentMap === 'admin' ? this.adminWorld : this.world;
+        drawWorld.draw(ctx, this.camera);
 
         const entities = this.npcs.map(n => ({ type: 'npc', entity: n }));
         if (this.player) entities.push({ type: 'player', entity: this.player });
@@ -274,12 +299,13 @@ class Game {
         }
 
         this.chat.drawBubbles(ctx, this.camera);
-        if (this.weather === 'rain') this._drawRain(ctx);
+        if (this.weather === 'rain' && this.currentMap === 'main') this._drawRain(ctx);
         this._drawDepthOverlay(ctx, canvas);
         this._drawZoneIndicator(ctx);
         this._drawJumpIndicator(ctx);
         this._drawTeleportOverlay(ctx, canvas);
         this._drawControls(ctx);
+        if (this.showWorldMap) this._drawWorldMap(ctx, canvas);
     }
 
     _drawPlayer(ctx) {
@@ -304,8 +330,8 @@ class Game {
     }
 
     _drawDepthOverlay(ctx, canvas) {
-        if (!this.player) return;
-        const depth = (this.player.y + PLAYER_FEET) - this.world.SURFACE_Y - 70;
+        if (!this.player || this.currentMap === 'admin') return;
+        const depth = this.player.y - this.world.SURFACE_Y - 70;
         if (depth <= 0) return;
         ctx.fillStyle = `rgba(0,0,0,${Math.min(0.55, depth / 750 * 0.55)})`;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -313,7 +339,8 @@ class Game {
 
     _drawZoneIndicator(ctx) {
         if (!this.player) return;
-        const zone = this.world.getZoneAt(this.player.x, this.player.y + PLAYER_FEET);
+        const aw   = this.currentMap === 'admin' ? this.adminWorld : this.world;
+        const zone = aw.getZoneAt(this.player.x, this.player.y);
         if (!zone?.name) return;
         ctx.font = 'bold 15px sans-serif';
         ctx.textAlign = 'center';
@@ -350,7 +377,7 @@ class Game {
         ctx.fillStyle = 'rgba(255,255,255,0.22)';
         ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
         ctx.fillText(
-            '← →/Q D : Déplacer  |  Espace/↑/Z : Sauter (×2)  |  Entrée : Chat  |  Clic : Aller vers',
+            '← →/Q D : Déplacer  |  Espace/↑/Z : Sauter (×2)  |  Entrée : Chat  |  M : Carte  |  Clic : Aller',
             10, this.canvas.height - 10
         );
     }
@@ -369,9 +396,8 @@ class Game {
     }
 
     _refreshAdminPanel() {
-        const zone = this.player
-            ? this.world.getZoneAt(this.player.x, this.player.y + PLAYER_FEET)
-            : null;
+        const aw   = this.currentMap === 'admin' ? this.adminWorld : this.world;
+        const zone = this.player ? aw.getZoneAt(this.player.x, this.player.y) : null;
         const el = document.getElementById('admin-current-zone');
         if (el) el.textContent = zone?.name || 'Inconnue';
 
@@ -515,6 +541,135 @@ class Game {
 
     adminTeleportAll() {
         this.chat.addMessage(null, '✈️ Admin : Tous les joueurs téléportés vers vous !', true);
+    }
+
+    // ── Admin world switching ─────────────────────────────────────
+    _enterAdminWorld() {
+        this.currentMap = 'admin';
+        this.player.x   = 300;
+        this.player.y   = this.adminWorld.SURFACE_Y;
+        this.player.velY = 0;
+        this.camera.x   = 0;
+        this.camera.y   = 0;
+        this._showNotif('⚜ Bienvenue dans l\'Espace Admin !');
+        this.chat.addMessage(null, '⚜ Admin a rejoint l\'Espace Secret !', true);
+    }
+
+    _exitAdminWorld() {
+        this.currentMap = 'main';
+        this.player.x   = 2750;
+        this.player.y   = this.world.SURFACE_Y;
+        this.player.velY = 0;
+        this._showNotif('↩ Retour au monde principal !');
+    }
+
+    // ── Carte du Monde ────────────────────────────────────────────
+    _drawWorldMap(ctx, canvas) {
+        // Fond semi-transparent
+        ctx.fillStyle = 'rgba(5, 15, 35, 0.92)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Titre
+        ctx.fillStyle = '#FFEB3B';
+        ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('🗺️ Carte du Monde – BlabWorld', canvas.width / 2, 44);
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = '13px sans-serif';
+        ctx.fillText('[M] pour fermer', canvas.width / 2, 66);
+
+        const zones = [
+            // Rangée principale (monde extérieur)
+            { name: '🏘️ Village',          color: '#66BB6A', x:  80, y: 120, w: 130, h: 80, zone: 'main', wx: 200 },
+            { name: '🌿 Plaines',           color: '#4CAF50', x: 230, y: 120, w: 130, h: 80, zone: 'main', wx: 750 },
+            { name: '🌳 Forêt',             color: '#2E7D32', x: 380, y: 120, w: 150, h: 80, zone: 'main', wx: 1200 },
+            { name: '🏜️ Désert',            color: '#FDD835', x: 550, y: 120, w: 120, h: 80, zone: 'main', wx: 2300 },
+            // Grottes (sous le village)
+            { name: '⛏ Grottes',           color: '#78909C', x: 130, y: 230, w: 140, h: 70, zone: 'main', wx: 700 },
+            { name: '🔥 Grottes Profondes', color: '#EF5350', x: 130, y: 325, w: 170, h: 70, zone: 'main', wx: 900 },
+            // Zone Admin (monde principal)
+            { name: '🛡 Forteresse Admin',  color: '#CE93D8', x: 690, y: 120, w: 160, h: 80, zone: 'main', wx: 2600, adminOnly: true },
+            // Espace Admin (second monde)
+            { name: '⚜ Espace Admin',      color: '#9C27B0', x: 690, y: 230, w: 160, h: 80, zone: 'admin', wx: 300, adminOnly: true },
+        ];
+
+        for (const z of zones) {
+            if (z.adminOnly && !this.isAdmin) continue;
+            // Box shadow
+            ctx.shadowColor   = z.color + '88';
+            ctx.shadowBlur    = 10;
+            // Fond de la zone
+            const isCurrent = this.currentMap === z.zone &&
+                this.player && Math.abs(
+                    (this.currentMap === 'main' ? this.world : this.adminWorld)
+                        .getZoneAt(this.player.x, this.player.y)?.name?.includes(z.name.replace(/^.*? /, ''))
+                );
+            ctx.fillStyle = isCurrent ? z.color : z.color + '55';
+            ctx.beginPath(); ctx.roundRect(z.x, z.y, z.w, z.h, 10); ctx.fill();
+            ctx.strokeStyle = z.color; ctx.lineWidth = isCurrent ? 3 : 1.5;
+            ctx.beginPath(); ctx.roundRect(z.x, z.y, z.w, z.h, 10); ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Nom
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(z.name, z.x + z.w / 2, z.y + z.h / 2 + 5);
+
+            // Clic pour téléporter (admin)
+            if (this.isAdmin) {
+                ctx.fillStyle = 'rgba(255,255,255,0.18)';
+                ctx.font = '10px sans-serif';
+                ctx.fillText('Clic → Téléporter', z.x + z.w / 2, z.y + z.h - 12);
+            }
+        }
+
+        // Position du joueur actuelle
+        if (this.player) {
+            const curZone = (this.currentMap === 'main' ? this.world : this.adminWorld)
+                .getZoneAt(this.player.x, this.player.y);
+            ctx.fillStyle = '#FFEB3B';
+            ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(`Tu es ici : ${curZone?.name || 'Inconnu'}`, canvas.width / 2, canvas.height - 30);
+        }
+
+        // Interactivité : clic sur une zone pour aller dedans
+        if (!this._mapClickHandlerSet) {
+            this._mapClickHandlerSet = true;
+            canvas.addEventListener('click', e => {
+                if (!this.showWorldMap) return;
+                const rect = canvas.getBoundingClientRect();
+                const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+                const zonesDef = [
+                    { x:  80, y: 120, w: 130, h: 80, wx: 200,  zone: 'main' },
+                    { x: 230, y: 120, w: 130, h: 80, wx: 750,  zone: 'main' },
+                    { x: 380, y: 120, w: 150, h: 80, wx: 1200, zone: 'main' },
+                    { x: 550, y: 120, w: 120, h: 80, wx: 2300, zone: 'main' },
+                    { x: 130, y: 230, w: 140, h: 70, wx: 700,  zone: 'main' },
+                    { x: 130, y: 325, w: 170, h: 70, wx: 900,  zone: 'main' },
+                    { x: 690, y: 120, w: 160, h: 80, wx: 2600, zone: 'main',  adminOnly: true },
+                    { x: 690, y: 230, w: 160, h: 80, wx: 300,  zone: 'admin', adminOnly: true },
+                ];
+                for (const z of zonesDef) {
+                    if (z.adminOnly && !this.isAdmin) continue;
+                    if (cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h) {
+                        if (this.isAdmin) {
+                            if (z.zone === 'admin' && this.currentMap !== 'admin') {
+                                this._enterAdminWorld();
+                            } else if (z.zone === 'main') {
+                                if (this.currentMap === 'admin') this._exitAdminWorld();
+                                this.player.x = z.wx;
+                                this.player.y = this.world.SURFACE_Y;
+                                this.player.velY = 0;
+                            }
+                            this._showNotif('✈️ Téléporté !');
+                        }
+                        this.showWorldMap = false;
+                        break;
+                    }
+                }
+                // Clic hors zones = fermer
+                this.showWorldMap = false;
+            });
+        }
     }
 
     updatePlayerAvatar(avatarConfig) {

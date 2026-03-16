@@ -110,57 +110,60 @@ class World {
         const S = this.SURFACE_Y;
         this.objects = [
             // Village
-            { type: 'house',    x: 140,  y: S },
-            { type: 'tree',     x: 60,   y: S, s: 1.2 },
-            { type: 'tree',     x: 220,  y: S, s: 0.9 },
-            { type: 'bench',    x: 310,  y: S },
-            { type: 'lamp',     x: 390,  y: S },
-            { type: 'flower',   x: 55,   y: S, c: '#FF69B4' },
-            { type: 'flower',   x: 170,  y: S, c: '#FF4081' },
-            { type: 'flower',   x: 455,  y: S, c: '#FFD700' },
-            { type: 'heart',    x: 90,   y: S - 20 },
-            { type: 'heart',    x: 360,  y: S - 25 },
-            { type: 'balloon',  x: 120,  y: S - 90, c: '#FF5252' },
-            { type: 'balloon',  x: 350,  y: S - 75, c: '#FFD740' },
-            { type: 'sign',     x: 482,  y: S, text: '⛏ Grottes →' },
+            { type: 'house',      x: 140,  y: S },
+            { type: 'tree',       x: 60,   y: S, s: 1.2 },
+            { type: 'tree',       x: 220,  y: S, s: 0.9 },
+            { type: 'bench',      x: 310,  y: S },
+            { type: 'lamp',       x: 390,  y: S },
+            { type: 'flower',     x: 55,   y: S, c: '#FF69B4' },
+            { type: 'flower',     x: 170,  y: S, c: '#FF4081' },
+            { type: 'flower',     x: 455,  y: S, c: '#FFD700' },
+            { type: 'heart',      x: 90,   y: S - 20 },
+            { type: 'heart',      x: 360,  y: S - 25 },
+            { type: 'balloon',    x: 120,  y: S - 90,  c: '#FF5252' },
+            { type: 'balloon',    x: 350,  y: S - 75,  c: '#FFD740' },
+            { type: 'sign',       x: 482,  y: S, text: '⛏ Grottes →' },
+            // Pont de pierre (arc sur le trou de grotte 1)
+            { type: 'stonearch',  x: 550,  y: S },
             // Plaines
-            { type: 'tree',     x: 680,  y: S, s: 1.0 },
-            { type: 'tree',     x: 800,  y: S, s: 1.1 },
-            { type: 'flower',   x: 720,  y: S, c: '#E91E63' },
-            { type: 'flower',   x: 850,  y: S, c: '#9C27B0' },
-            { type: 'bench',    x: 875,  y: S },
-            { type: 'heart',    x: 640,  y: S - 18 },
-            { type: 'balloon',  x: 700,  y: S - 85, c: '#69F0AE' },
-            { type: 'balloon',  x: 900,  y: S - 70, c: '#FF4081' },
-            { type: 'sign',     x: 933,  y: S, text: '⛏ Grottes →' },
+            { type: 'tree',       x: 680,  y: S, s: 1.0 },
+            { type: 'tree',       x: 800,  y: S, s: 1.1 },
+            { type: 'flower',     x: 720,  y: S, c: '#E91E63' },
+            { type: 'flower',     x: 850,  y: S, c: '#9C27B0' },
+            { type: 'bench',      x: 875,  y: S },
+            { type: 'heart',      x: 640,  y: S - 18 },
+            { type: 'balloon',    x: 700,  y: S - 85,  c: '#69F0AE' },
+            { type: 'balloon',    x: 900,  y: S - 70,  c: '#FF4081' },
+            { type: 'sign',       x: 933,  y: S, text: '⛏ Grottes →' },
             // Forêt
-            { type: 'tree',     x: 1105, y: S, s: 1.3 },
-            { type: 'tree',     x: 1210, y: S, s: 1.0 },
-            { type: 'tree',     x: 1360, y: S, s: 1.2 },
-            { type: 'tree',     x: 1610, y: S - 35, s: 0.9 },
-            { type: 'palmtree', x: 1905, y: S, s: 1.0 },
-            { type: 'flower',   x: 1150, y: S, c: '#FF6D00' },
-            { type: 'heart',    x: 1280, y: S - 22 },
-            { type: 'balloon',  x: 1100, y: S - 80, c: '#40C4FF' },
-            { type: 'balloon',  x: 1500, y: S - 95, c: '#FF4081' },
+            { type: 'tree',       x: 1105, y: S, s: 1.3 },
+            { type: 'tree',       x: 1210, y: S, s: 1.0 },
+            { type: 'tree',       x: 1360, y: S, s: 1.2 },
+            { type: 'tree',       x: 1610, y: S - 35, s: 0.9 },
+            { type: 'palmtree',   x: 1905, y: S, s: 1.0 },
+            { type: 'flower',     x: 1150, y: S, c: '#FF6D00' },
+            { type: 'heart',      x: 1280, y: S - 22 },
+            { type: 'balloon',    x: 1100, y: S - 80,  c: '#40C4FF' },
+            { type: 'balloon',    x: 1500, y: S - 95,  c: '#FF4081' },
             // Admin
-            { type: 'lamp',     x: 2565, y: 302 },
-            { type: 'lamp',     x: 3245, y: 302 },
-            { type: 'tree',     x: 2710, y: 302, s: 0.7 },
-            { type: 'tree',     x: 3115, y: 302, s: 0.7 },
-            { type: 'heart',    x: 2650, y: 302 - 18 },
-            { type: 'balloon',  x: 2900, y: 302 - 80, c: '#FFD700' },
+            { type: 'adminportal',x: 2750, y: 302 },
+            { type: 'lamp',       x: 2565, y: 302 },
+            { type: 'lamp',       x: 3245, y: 302 },
+            { type: 'tree',       x: 2710, y: 302, s: 0.7 },
+            { type: 'tree',       x: 3115, y: 302, s: 0.7 },
+            { type: 'heart',      x: 2650, y: 302 - 18 },
+            { type: 'balloon',    x: 2900, y: 302 - 80,  c: '#FFD700' },
             // Grottes
-            { type: 'crystal',  x: 505,  y: 820 },
-            { type: 'crystal',  x: 705,  y: 820 },
-            { type: 'crystal',  x: 905,  y: 820 },
-            { type: 'mushroom', x: 605,  y: 820 },
-            { type: 'mushroom', x: 855,  y: 820 },
+            { type: 'crystal',    x: 505,  y: 820 },
+            { type: 'crystal',    x: 705,  y: 820 },
+            { type: 'crystal',    x: 905,  y: 820 },
+            { type: 'mushroom',   x: 605,  y: 820 },
+            { type: 'mushroom',   x: 855,  y: 820 },
             // Grottes profondes
-            { type: 'crystal',  x: 755,  y: 1140 },
-            { type: 'crystal',  x: 1205, y: 1140 },
-            { type: 'crystal',  x: 1505, y: 1140 },
-            { type: 'mushroom', x: 905,  y: 1140 },
+            { type: 'crystal',    x: 755,  y: 1140 },
+            { type: 'crystal',    x: 1205, y: 1140 },
+            { type: 'crystal',    x: 1505, y: 1140 },
+            { type: 'mushroom',   x: 905,  y: 1140 },
         ];
     }
 
@@ -224,13 +227,14 @@ class World {
         if (camera.y < 600) {
             // Ciel bleu lumineux style Blabland
             const g = ctx.createLinearGradient(0, 0, 0, ch);
-            g.addColorStop(0,   '#5BBFED');
-            g.addColorStop(0.5, '#87CEEB');
+            g.addColorStop(0,   '#4AAFE8');
+            g.addColorStop(0.5, '#7DC8F0');
             g.addColorStop(1,   '#B3E5FC');
             ctx.fillStyle = g;
             ctx.fillRect(0, 0, cw, ch);
 
             this._drawSun(ctx, camera);
+            this._drawBgHills(ctx, camera, cw, ch);
             this._drawClouds(ctx, camera, cw, ch);
             this._drawBuildingBg(ctx, camera, cw, ch);
         } else {
@@ -292,6 +296,37 @@ class World {
             if (cx + c.r * 3 < 0 || cx - c.r * 3 > cw) continue;
             if (cy + c.r * 2 < 0 || cy > ch) continue;
             this._drawCloud(ctx, cx, cy, c.r);
+        }
+    }
+
+    // Collines lointaines (arrière-plan parallaxe, style Blabland)
+    _drawBgHills(ctx, camera, cw, ch) {
+        const gsy = this.SURFACE_Y - camera.y;
+        if (gsy > ch + 20) return;
+
+        const hills = [
+            { x: 0,    w: 380, h: 130, c: '#B0D8EE' },
+            { x: 300,  w: 280, h: 100, c: '#9DCDE8' },
+            { x: 520,  w: 420, h: 150, c: '#AFC6E8' },
+            { x: 880,  w: 300, h: 110, c: '#9EC8E8' },
+            { x: 1100, w: 360, h: 140, c: '#B5D5EE' },
+            { x: 1380, w: 320, h: 120, c: '#A4CDE8' },
+            { x: 1620, w: 400, h: 145, c: '#ACCDE8' },
+            { x: 1950, w: 340, h: 115, c: '#9BC5E8' },
+            { x: 2200, w: 380, h: 135, c: '#B2D3EE' },
+            { x: 2500, w: 300, h: 100, c: '#A0C8E8' },
+            { x: 2700, w: 360, h: 130, c: '#AACEE8' },
+        ];
+        for (const h of hills) {
+            const hx = h.x - camera.x * 0.22;
+            if (hx + h.w + 50 < 0 || hx - 50 > cw) continue;
+            ctx.fillStyle = h.c;
+            ctx.beginPath();
+            ctx.moveTo(hx, gsy);
+            ctx.quadraticCurveTo(hx + h.w * 0.25, gsy - h.h * 1.2, hx + h.w * 0.5, gsy - h.h);
+            ctx.quadraticCurveTo(hx + h.w * 0.75, gsy - h.h * 0.8, hx + h.w, gsy);
+            ctx.closePath();
+            ctx.fill();
         }
     }
 
@@ -390,19 +425,41 @@ class World {
                 ctx.fillStyle = '#9C27B0'; ctx.fillRect(sx, sy + 5, surf.width, 8);
                 ctx.fillStyle = '#6A1B9A'; ctx.fillRect(sx, sy + 13, surf.width, 16);
             } else {
-                // Herbe verte vive (Blabland style)
-                ctx.fillStyle = '#7CB342';
-                ctx.fillRect(sx, sy - 5, surf.width, 9);
-                ctx.fillStyle = '#9CCC65'; // bande claire
-                ctx.fillRect(sx, sy - 2, surf.width, 4);
-                // Bande rose/magenta en dessous (signature Blabland !)
+                // Terre brune (corps)
+                ctx.fillStyle = '#8B5E2A';
+                ctx.fillRect(sx, sy + 4, surf.width, 32);
+                ctx.fillStyle = '#6D4520';
+                ctx.fillRect(sx, sy + 20, surf.width, 16);
+                // Bande rose/magenta signature Blabland
                 ctx.fillStyle = '#EC407A';
-                ctx.fillRect(sx, sy + 4, surf.width, 7);
-                ctx.fillStyle = '#E91E63';
-                ctx.fillRect(sx, sy + 11, surf.width, 4);
-                // Terre brune
-                ctx.fillStyle = '#6D4C41';
-                ctx.fillRect(sx, sy + 15, surf.width, 16);
+                ctx.fillRect(sx, sy + 4, surf.width, 6);
+
+                // Herbe organique – grumeaux arrondis (style Blabland)
+                ctx.fillStyle = '#4E9A1C';
+                ctx.beginPath();
+                ctx.moveTo(sx - 2, sy + 5);
+                for (let xi = 0; xi < surf.width + 20; xi += 20) {
+                    const lh = 10 + Math.sin(xi * 0.27 + surf.x * 0.018) * 4;
+                    ctx.quadraticCurveTo(sx + xi + 10, sy - lh, sx + xi + 20, sy + 5);
+                }
+                ctx.lineTo(sx + surf.width + 2, sy + 5);
+                ctx.lineTo(sx + surf.width + 2, sy + 4);
+                ctx.lineTo(sx - 2, sy + 4);
+                ctx.closePath();
+                ctx.fill();
+
+                // Herbe claire sur les bosses
+                ctx.fillStyle = '#7DC831';
+                ctx.beginPath();
+                ctx.moveTo(sx - 2, sy + 3);
+                for (let xi = 0; xi < surf.width + 20; xi += 20) {
+                    const lh = 5 + Math.sin(xi * 0.27 + surf.x * 0.018) * 2;
+                    ctx.quadraticCurveTo(sx + xi + 10, sy - lh, sx + xi + 20, sy + 3);
+                }
+                ctx.lineTo(sx + surf.width + 2, sy + 4);
+                ctx.lineTo(sx - 2, sy + 4);
+                ctx.closePath();
+                ctx.fill();
             }
         }
     }
@@ -533,38 +590,69 @@ class World {
     // ══════════════════════════════════════════════════════════════════
     _drawObject(ctx, obj, sx, sy) {
         switch (obj.type) {
-            case 'tree':     this._drawTree(ctx, sx, sy, obj.s || 1); break;
-            case 'palmtree': this._drawPalmTree(ctx, sx, sy, obj.s || 1); break;
-            case 'bench':    this._drawBench(ctx, sx, sy); break;
-            case 'lamp':     this._drawLamp(ctx, sx, sy); break;
-            case 'house':    this._drawHouse(ctx, sx, sy); break;
-            case 'flower':   this._drawFlower(ctx, sx, sy, obj.c || '#FF69B4'); break;
-            case 'crystal':  this._drawCrystal(ctx, sx, sy); break;
-            case 'mushroom': this._drawMushroom(ctx, sx, sy); break;
-            case 'sign':     this._drawSign(ctx, sx, sy, obj.text || ''); break;
-            case 'balloon':  this._drawBalloon(ctx, sx, sy, obj.c || '#FF5252'); break;
-            case 'heart':    this._drawHeart(ctx, sx, sy); break;
+            case 'tree':        this._drawTree(ctx, sx, sy, obj.s || 1); break;
+            case 'palmtree':    this._drawPalmTree(ctx, sx, sy, obj.s || 1); break;
+            case 'bench':       this._drawBench(ctx, sx, sy); break;
+            case 'lamp':        this._drawLamp(ctx, sx, sy); break;
+            case 'house':       this._drawHouse(ctx, sx, sy); break;
+            case 'flower':      this._drawFlower(ctx, sx, sy, obj.c || '#FF69B4'); break;
+            case 'crystal':     this._drawCrystal(ctx, sx, sy); break;
+            case 'mushroom':    this._drawMushroom(ctx, sx, sy); break;
+            case 'sign':        this._drawSign(ctx, sx, sy, obj.text || ''); break;
+            case 'balloon':     this._drawBalloon(ctx, sx, sy, obj.c || '#FF5252'); break;
+            case 'heart':       this._drawHeart(ctx, sx, sy); break;
+            case 'stonearch':   this._drawStoneArch(ctx, sx, sy); break;
+            case 'adminportal': this._drawAdminPortal(ctx, sx, sy); break;
         }
     }
 
-    // Arbres très ronds style Blabland
+    // Arbres ronds avec lianes pendantes (style Blabland)
     _drawTree(ctx, x, y, s) {
         // Tronc épais
         ctx.fillStyle = '#795548';
         ctx.beginPath();
-        ctx.roundRect(x - 7 * s, y - 38 * s, 14 * s, 38 * s, 4);
+        ctx.roundRect(x - 7 * s, y - 42 * s, 14 * s, 42 * s, 4);
         ctx.fill();
         // Canopée ronde (grosse)
+        ctx.fillStyle = '#2E7D32';
+        ctx.beginPath(); ctx.arc(x, y - 56 * s, 33 * s, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#388E3C';
-        ctx.beginPath(); ctx.arc(x, y - 52 * s, 30 * s, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x - 14 * s, y - 50 * s, 24 * s, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x + 16 * s, y - 48 * s, 22 * s, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#4CAF50';
-        ctx.beginPath(); ctx.arc(x - 12 * s, y - 48 * s, 22 * s, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(x + 14 * s, y - 46 * s, 20 * s, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y - 62 * s, 20 * s, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#66BB6A';
-        ctx.beginPath(); ctx.arc(x, y - 58 * s, 18 * s, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x - 6 * s, y - 66 * s, 12 * s, 0, Math.PI * 2); ctx.fill();
         // Reflet
         ctx.fillStyle = 'rgba(255,255,255,0.15)';
-        ctx.beginPath(); ctx.arc(x - 8 * s, y - 60 * s, 7 * s, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x - 10 * s, y - 66 * s, 8 * s, 0, Math.PI * 2); ctx.fill();
+
+        // Lianes pendantes (signature Blabland)
+        ctx.strokeStyle = '#33691E';
+        ctx.lineWidth = 2 * s;
+        const vineCount = Math.floor(4 + s * 2);
+        for (let i = 0; i < vineCount; i++) {
+            const vx  = x - 20 * s + i * (40 * s / (vineCount - 1));
+            const vh  = 28 + Math.sin(i * 1.3) * 12;
+            const swy = Date.now() * 0.001 + i * 0.8;
+            ctx.beginPath();
+            ctx.moveTo(vx, y - 30 * s);
+            ctx.quadraticCurveTo(
+                vx + Math.sin(swy) * 6,
+                y - 30 * s + vh * 0.5,
+                vx + Math.sin(swy) * 4,
+                y - 30 * s + vh
+            );
+            ctx.stroke();
+            // Petite feuille en bas de la liane
+            ctx.fillStyle = '#4CAF50';
+            ctx.beginPath();
+            ctx.ellipse(
+                vx + Math.sin(swy) * 4, y - 30 * s + vh,
+                4, 2.5, Math.sin(swy) * 0.5, 0, Math.PI * 2
+            );
+            ctx.fill();
+        }
     }
 
     _drawPalmTree(ctx, x, y, s) {
@@ -695,6 +783,101 @@ class World {
         // Noeud
         ctx.fillStyle = color;
         ctx.beginPath(); ctx.ellipse(x, y + by + 16, 3, 3, 0, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // PONT DE PIERRE (arc style Blabland)
+    _drawStoneArch(ctx, x, y) {
+        const aw = 80; // demi-largeur de l'arche
+        // Piliers
+        ctx.fillStyle = '#90A4AE';
+        ctx.fillRect(x - aw - 12, y - 60, 22, 60);
+        ctx.fillRect(x + aw - 10, y - 60, 22, 60);
+        // Corps de l'arche (demi-cercle)
+        ctx.strokeStyle = '#78909C'; ctx.lineWidth = 18;
+        ctx.beginPath();
+        ctx.arc(x, y, aw + 5, Math.PI, 0);
+        ctx.stroke();
+        ctx.strokeStyle = '#90A4AE'; ctx.lineWidth = 12;
+        ctx.beginPath();
+        ctx.arc(x, y, aw + 5, Math.PI, 0);
+        ctx.stroke();
+        // Pierres décoratives sur l'arche
+        ctx.fillStyle = '#B0BEC5';
+        for (let i = 0; i <= 8; i++) {
+            const a  = Math.PI + i * (Math.PI / 8);
+            const bx = x + Math.cos(a) * (aw + 5);
+            const by = y + Math.sin(a) * (aw + 5);
+            ctx.beginPath(); ctx.arc(bx, by, 5, 0, Math.PI * 2); ctx.fill();
+        }
+        // Tablier du pont (planches)
+        ctx.fillStyle = '#A1887F';
+        ctx.fillRect(x - aw - 12, y - 14, (aw + 12) * 2, 14);
+        ctx.fillStyle = '#8D6E63';
+        for (let i = 0; i < (aw + 12) * 2; i += 18) {
+            ctx.fillRect(x - aw - 12 + i, y - 14, 2, 14);
+        }
+        // Garde-corps
+        ctx.strokeStyle = '#795548'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x - aw - 12, y - 14);
+        ctx.lineTo(x - aw - 12, y - 30);
+        ctx.moveTo(x + aw + 12, y - 14);
+        ctx.lineTo(x + aw + 12, y - 30);
+        ctx.stroke();
+        ctx.strokeStyle = '#A1887F'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - aw - 12, y - 30);
+        ctx.lineTo(x + aw + 12, y - 30);
+        ctx.stroke();
+    }
+
+    // PORTAIL ADMIN (dans le monde principal – entrée vers l'espace admin)
+    _drawAdminPortal(ctx, x, y) {
+        const t = Date.now() * 0.002;
+
+        // Arc du portail
+        const alp = 0.75 + Math.sin(t) * 0.2;
+        ctx.strokeStyle = `rgba(200,100,255,${alp})`;
+        ctx.lineWidth   = 5;
+        ctx.beginPath();
+        ctx.moveTo(x - 30, y);
+        ctx.lineTo(x - 30, y - 65);
+        ctx.arc(x, y - 65, 30, Math.PI, 0);
+        ctx.lineTo(x + 30, y);
+        ctx.stroke();
+
+        // Remplissage ondulant violet
+        const gr = ctx.createRadialGradient(x, y - 45, 5, x, y - 45, 35);
+        gr.addColorStop(0, `rgba(160,0,255,${0.55 + Math.sin(t * 1.4) * 0.2})`);
+        gr.addColorStop(1, `rgba(80,0,180,0.15)`);
+        ctx.fillStyle = gr;
+        ctx.beginPath();
+        ctx.moveTo(x - 28, y);
+        ctx.lineTo(x - 28, y - 65);
+        ctx.arc(x, y - 65, 28, Math.PI, 0);
+        ctx.lineTo(x + 28, y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Étoiles dans le portail
+        for (let i = 0; i < 5; i++) {
+            const a   = t * 1.5 + (i / 5) * Math.PI * 2;
+            const pr  = 14 + Math.sin(t * 3 + i) * 5;
+            const ppx = x + Math.cos(a) * pr;
+            const ppy = y - 48 + Math.sin(a) * pr * 0.55;
+            ctx.fillStyle = `rgba(255,220,255,${0.6 + Math.sin(t + i) * 0.3})`;
+            ctx.beginPath(); ctx.arc(ppx, ppy, 2, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Texte
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('⚜ Zone Admin', x, y + 18);
+
+        // Symbole ⚜ animé
+        ctx.fillStyle = `rgba(255,215,0,${0.8 + Math.sin(t * 2) * 0.2})`;
+        ctx.font = `${14 + Math.sin(t) * 2}px sans-serif`;
+        ctx.fillText('⚜', x, y - 52);
     }
 
     // CŒUR flottant
